@@ -1,0 +1,246 @@
+---
+title: "Growth Yield Figures"
+author: "Juan P Barraza"
+date: "1/28/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(magrittr)
+library(plotrix)#this allows the std.error function to work
+library(cowplot)
+
+#this is co-culture data from PA14 using exponential phase cultures
+coCultureGCFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/PA14 exp growth curves.csv"
+coCultureGCData <-read.csv(coCultureGCFile)
+coCultureGCData%>% group_by(condition, bug, time, strain) %>% summarise(cellCount = mean(countsmL), cellSE = std.error(countsmL),  cellSD = sd(countsmL)) %>% as.data.frame() -> coCultureGCDataStats
+levels(coCultureGCDataStats$condition)<-c("Stirred", "Static")
+
+##this data is from non-exponential phase cultures, but the yeld should be fine for the mono-cultures
+#Data from PAO1
+nonExpPAO1File<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/PAO1 growth curves.csv"
+nonExpPAO1Data <-read.csv(nonExpPAO1File)
+nonExpPAO1Data<- na.omit(nonExpPAO1Data)
+nonExpPAO1Data$countsmL<-as.numeric(levels(nonExpPAO1Data$countsmL))[nonExpPAO1Data$countsmL]
+nonExpPAO1Data %>% filter(condition=="Mono")->nonExpPAO1DataMono
+#Data from PA14
+nonExpPA14File<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/PA14 growth curves.csv"
+nonExpPA14Data <-read.csv(nonExpPA14File)
+nonExpPA14Data<- na.omit(nonExpPA14Data)
+nonExpPA14Data %>% filter(condition=="Mono")->nonExpPA14DataMono
+
+nonExpAllData<-rbind(nonExpPAO1DataMono,nonExpPA14DataMono)
+nonExpAllData %>% filter(bug=="Sa")->nonExpAllDataSa#All non-exponential data from Sa
+nonExpAllData %>% filter(!bug=="Sa")->nonExpAllDataPa#All non-exponential data from Pa
+
+```
+These are the growth curves for non exponential phase Pa and Sa mono culture growth curves. The growth yield should not be affected as cultures are still approaching carrying capacity since they are not being outcompeted by Pa. There are two data points significantly lower than the other 3.
+```{r growth curves nonExp, echo=FALSE, warning=FALSE,fig.width=9, fig.height=7}
+##Graph growth yields for non-exponential data
+#First for Sa:
+ggplot(nonExpAllDataSa, aes(x=time, y = countsmL, color = bug))+
+  geom_jitter(height = 0, width = .2)+
+  scale_y_log10(name=expression(paste('CFUs per mL' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  #scale_x_continuous(breaks = c(0,4,8,12,16))+
+  ggtitle("SCFM2 NonExp Sa mono growth")
+
+#Then for Pa:
+ggplot(nonExpAllDataPa, aes(x=time, y = countsmL, color = bug))+
+  geom_jitter(height = 0, width = .2)+
+  scale_y_log10(name=expression(paste('CFUs per mL' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  #scale_x_continuous(breaks = c(0,4,8,12,16))+
+  ggtitle("SCFM2 NonExp Pa mono growth")
+
+```
+
+
+This is the data yield starting from exponential phase and going up to 16 hours:
+
+```{r exponential phase yield, echo=FALSE, warning=FALSE,fig.width=9, fig.height=7}
+##Lines below are to go from 12hr growth curve to growth yield
+#First for Sa:
+nonExpAllDataSa %>% filter(time=="12")->nonExpAllDataSaYield
+nonExpAllDataSaYield %>% select(countsmL,rep,bug) %>% mutate(condition = "static")->nonExpAllDataSaYieldSimple
+nonExpAllDataSaYieldSimple<-nonExpAllDataSaYieldSimple[c(1,2,4,3)]
+colnames(nonExpAllDataSaYieldSimple) <- c("bugs","rep", "condition", "strain")
+#Then for Pa:
+nonExpAllDataPa %>% filter(time=="12")->nonExpAllDataPaYield
+nonExpAllDataPaYield %>% select(countsmL,rep,bug) %>% mutate(condition = "static")->nonExpAllDataPaYieldSimple
+nonExpAllDataPaYieldSimple<-nonExpAllDataPaYieldSimple[c(1,2,4,3)]
+colnames(nonExpAllDataPaYieldSimple) <- c("bugs","rep", "condition", "strain")
+
+##Now get the growth yield for mono starting from exponential phase
+#First for Sa:
+yieldSaFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/Pa growth yields 16 hrs/Sa growth yields 16 hrs.csv"
+yieldSaData <-read.csv(yieldSaFile)
+ggplot()+
+  geom_point(data=yieldSaData, aes(x=condition, y=bugs), size=4)+
+  scale_y_log10(limits= c(1e6,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(6,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =expression(paste("Sa growth yield (16 hrs)")), x = "condtion")
+#Then for Pa:
+yieldPaFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/Pa growth yields 16 hrs/Pa growth yields 16 hrs.csv"
+yieldPaData <-read.csv(yieldPaFile)
+yieldPaData<-yieldPaData %>% filter(!bio.rep==3)#third replicate was thrown out because plate counts were off
+ggplot()+
+  geom_jitter(data=yieldPaData, aes(x=condition, y=bugs, color = strain), size=4, height = 0, width = .1)+
+  scale_y_log10(limits= c(1e6,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(6,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =expression(paste("Pa growth yield (16 hrs)")), x = "condition")
+```
+
+Shown below are the combination of the 12th hr timepoint of non exponential growth curves and the yield after 16 hrs of exp growth.
+```{r combined yield, echo=FALSE, warning=FALSE,fig.width=9, fig.height=7}
+##now, combining both exponential and non-exponential, we get this:
+#First for Sa:
+allYieldsSa <- gdata::combine(yieldSaData, nonExpAllDataSaYieldSimple)
+ggplot()+
+  geom_jitter(data=allYieldsSa, aes(x=condition, y=bugs, color = source), size=4, height = 0, width = .1)+
+  scale_y_log10(limits= c(1e6,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(6,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  scale_color_discrete(name = "Source",labels = c("Exp", "NonExp"))+
+  labs(title =expression(paste("Sa Growth Yield Combined")), x = "condition")
+
+allYieldsSa %>% group_by(condition) %>% summarise(meanYield = mean(bugs), SEYield = std.error(bugs)) %>% as.data.frame()->yieldsSaFinal
+
+#Now for Pa:
+yieldPaData<-yieldPaData %>% group_by(bio.rep, condition, strain) %>% summarise(bugsmL= mean(bugs))%>% as.data.frame() #data from Pa were not as simple as for Sa
+yieldPaData<-yieldPaData[c(4,1,2,3)]
+colnames(yieldPaData) <- c("bugs","rep", "condition", "strain")
+
+allYieldsPa <- gdata::combine(yieldPaData, nonExpAllDataPaYieldSimple)
+allYieldsPa<-allYieldsPa %>% mutate(strains = recode(allYieldsPa$strain, wt = "PA14wt", pqsL = "PA14-pqsL")) %>% as.data.frame()
+
+ggplot()+
+  geom_jitter(data=allYieldsPa, aes(x=condition, y=bugs, color = source, shape = strains), width = .1, height = 0,size=4)+
+  scale_y_log10(limits= c(1e7,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(6,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  scale_color_discrete(name = "Source",labels = c("Exp", "NonExp"))+
+  labs(title =expression(paste("Pa Growth Yield Combined")), x = "condition")
+
+allYieldsPa %>% group_by(condition, strains) %>% summarise(meanYield = mean(bugs), SEYield = std.error(bugs)) %>% as.data.frame()->yieldsPaFinal
+ggplot()+
+  geom_jitter(data=allYieldsPa, aes(x=condition, y=bugs, color = source), width = .1, height = 0,size=4)+
+  #geom_point(aes(x = condition, y-meanYield-SEYield, ymax=meanYield+SEYield), data =yieldsPaFinal, width=.1)+
+  geom_errorbar(aes(x = condition, ymin=meanYield-SEYield, ymax=meanYield+SEYield), data =yieldsPaFinal, width=.1)+
+  scale_y_log10(limits= c(1e8,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(6,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =expression(paste("Pa Growth Yield Combined")), x = "condition")+
+  scale_color_discrete(name = "Source",labels = c("Exp", "NonExp"))+
+  facet_grid(.~strains)
+```
+
+This is the growth curve, followed by the plots with horizontal bars showing the average growth yield among all replicates.
+
+```{r final plots, echo=FALSE, warning=FALSE,fig.width=9, fig.height=7}
+
+ggplot()+
+  geom_line(data=coCultureGCDataStats,aes(x=time, y=cellCount, color = bug, linetype = strain), size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD, color = bug), data =coCultureGCDataStats, width=.2, size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD,color = bug), data =coCultureGCDataStats, width=.2, size = 1)+
+  scale_y_log10(limits= c(1e5,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_grid(.~condition)+
+  scale_x_continuous(breaks = c(0,4,8,12,16))+
+  #scale_linetype_discrete(guide = FALSE)+
+  labs(title =expression(paste(italic("P. aeruginosa"), " PA14 wt and ", italic("S. aureus"), " coculture in SCFM2")), x = "Time (hours)", shape = "Strain", color = "Species")
+
+coCultureGCDataStatsMixed<-coCultureGCDataStats %>% filter(condition == "Stirred") %>% as.data.frame()
+coCultureGCDataStatsMixedSa<-coCultureGCDataStatsMixed %>% filter(bug == "Sa") %>% as.data.frame()
+coCultureGCDataStatsMixedPa<-coCultureGCDataStatsMixed %>% filter(bug == "Pa") %>% as.data.frame()
+
+coCultureGCDataStatsStatic<-coCultureGCDataStats %>% filter(condition == "Static") %>% as.data.frame()
+coCultureGCDataStatsStaticSa<-coCultureGCDataStatsStatic %>% filter(bug == "Sa") %>% as.data.frame()
+coCultureGCDataStatsStaticPa<-coCultureGCDataStatsStatic %>% filter(bug == "Pa") %>% as.data.frame()
+
+##Now we have everything we need for the final plot
+#these are the yields:
+yieldPaShMut<-yieldsPaFinal[1,3]
+yieldPaShWt<-yieldsPaFinal[2,3]
+yieldPaStMut<-yieldsPaFinal[3,3]
+yieldPaStWt<-yieldsPaFinal[4,3]
+yieldSaSt<-yieldsSaFinal[1,2]
+yieldSaSh<-yieldsSaFinal[2,2]
+
+#Plot for static data
+ggplot()+
+  geom_line(data=coCultureGCDataStatsStaticSa,aes(x=time, y=cellCount, linetype = strain), color = "red2", size = 1)+
+  geom_line(data=coCultureGCDataStatsStaticPa,aes(x=time, y=cellCount, linetype = strain), color = "green3", size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD), color = "red2", data =coCultureGCDataStatsStaticSa, width=.2, size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD), color = "green3", data =coCultureGCDataStatsStaticPa, width=.2, size = 1)+
+  scale_y_log10(limits= c(1e6,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  geom_hline(yintercept=yieldSaSt, linetype = "solid", color = "red2", size = 1)+
+  geom_hline(yintercept=yieldPaStWt, linetype = "solid", color = "green3",size = 1)+
+  geom_hline(yintercept=yieldPaStMut, linetype = "dashed", color = "green3",size = 1)+
+  scale_x_continuous(breaks = c(0,4,8,12,16))+
+  #scale_linetype_discrete(guide = FALSE)+
+  labs(title =expression(paste(italic("P. aeruginosa"), " PA14 wt and ", italic("S. aureus"), " coculture static in SCFM2")), x = "Time (hours)", shape = "Strain", color = "Species")
+
+ggplot()+
+  geom_line(data=coCultureGCDataStatsMixedSa,aes(x=time, y=cellCount, linetype = strain), color = "red2", size = 1)+
+  geom_line(data=coCultureGCDataStatsMixedPa,aes(x=time, y=cellCount, linetype = strain), color = "green3", size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD), color = "red2", data =coCultureGCDataStatsMixedSa, width=.2, size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD), color = "green3", data =coCultureGCDataStatsMixedPa, width=.2, size = 1)+
+  scale_y_log10(limits= c(1e5,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  geom_hline(yintercept=yieldSaSh, linetype = "solid", color = "red2", size = 1)+
+  geom_hline(yintercept=yieldPaShWt, linetype = "solid", color = "green3",size = 1)+
+  geom_hline(yintercept=yieldPaShMut, linetype = "dashed", color = "green3",size = 1)+
+  scale_x_continuous(breaks = c(0,4,8,12,16))+
+  #scale_linetype_discrete(guide = FALSE)+
+  labs(title =expression(paste(italic("P. aeruginosa"), " PA14 wt and ", italic("S. aureus"), " coculture stirred in SCFM2")), x = "Time (hours)", shape = "Strain", color = "Species")
+
+```
+And shown below are the same graphs but only using the data from exp phase growth yields
+```{r final plots exp only, echo=FALSE, warning=FALSE,fig.width=9, fig.height=7}
+
+yieldSaData %>% group_by(condition) %>% summarise(meanYield = mean(bugs), SEYield = std.error(bugs)) %>% as.data.frame()->yieldsSaFinalExpOnly
+
+yieldPaData %>% group_by(condition, strain) %>% summarise(meanYield = mean(bugs), SEYield = std.error(bugs)) %>% as.data.frame()->yieldsPaFinalExpOnly
+
+yieldPaShMutExp<-yieldsPaFinalExpOnly[1,3]
+yieldPaShWtExp<-yieldsPaFinalExpOnly[2,3]
+yieldPaStMutExp<-yieldsPaFinalExpOnly[3,3]
+yieldPaStWtExp<-yieldsPaFinalExpOnly[4,3]
+yieldSaStExp<-yieldsSaFinalExpOnly[1,2]
+yieldSaShExp<-yieldsSaFinalExpOnly[2,2]
+
+ggplot()+
+  geom_line(data=coCultureGCDataStatsStaticSa,aes(x=time, y=cellCount, linetype = strain), color = "red2", size = 1)+
+  geom_line(data=coCultureGCDataStatsStaticPa,aes(x=time, y=cellCount, linetype = strain), color = "green3", size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD), color = "red2", data =coCultureGCDataStatsStaticSa, width=.2, size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD), color = "green3", data =coCultureGCDataStatsStaticPa, width=.2, size = 1)+
+  scale_y_log10(limits= c(1e6,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  geom_hline(yintercept=yieldSaStExp, linetype = "solid", color = "red2", size = 1)+
+  geom_hline(yintercept=yieldPaStWtExp, linetype = "solid", color = "green3",size = 1)+
+  geom_hline(yintercept=yieldPaStMutExp, linetype = "dashed", color = "green3",size = 1)+
+  scale_x_continuous(breaks = c(0,4,8,12,16))+
+  #scale_linetype_discrete(guide = FALSE)+
+  labs(title =expression(paste(italic("P. aeruginosa"), " PA14 wt and ", italic("S. aureus"), " coculture static in SCFM2 (only exp yield)")), x = "Time (hours)", shape = "Strain", color = "Species")
+
+ggplot()+
+  geom_line(data=coCultureGCDataStatsMixedSa,aes(x=time, y=cellCount, linetype = strain), color = "red2", size = 1)+
+  geom_line(data=coCultureGCDataStatsMixedPa,aes(x=time, y=cellCount, linetype = strain), color = "green3", size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD), color = "red2", data =coCultureGCDataStatsMixedSa, width=.2, size = 1)+
+  geom_errorbar(aes(x = time, ymin=cellCount-cellSD, ymax=cellCount+cellSD), color = "green3", data =coCultureGCDataStatsMixedPa, width=.2, size = 1)+
+  scale_y_log10(limits= c(1e5,1e10), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  geom_hline(yintercept=yieldSaShExp, linetype = "solid", color = "red2", size = 1)+
+  geom_hline(yintercept=yieldPaShWtExp, linetype = "solid", color = "green3",size = 1)+
+  geom_hline(yintercept=yieldPaShMutExp, linetype = "dashed", color = "green3",size = 1)+
+  scale_x_continuous(breaks = c(0,4,8,12,16))+
+  #scale_linetype_discrete(guide = FALSE)+
+  labs(title =expression(paste(italic("P. aeruginosa"), " PA14 wt and ", italic("S. aureus"), " coculture stirred in SCFM2 (only exp yield)")), x = "Time (hours)", shape = "Strain", color = "Species")
+```
+
+```{r killing assays, echo=FALSE, warning=FALSE,fig.width=9, fig.height=7}
+diskFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/Staph killing assays/disk difussion assays.csv"
+diskData <-read.csv(diskFile)
+diskData<-diskData %>% mutate (zoneInhibition = avg-6)
+diskData%>% group_by(condition, strain) %>% summarise(meanZone = mean(zoneInhibition), SEZone = std.error(zoneInhibition)) %>% as.data.frame() -> diskDataStats
+
+ggplot()+#both PA and Sa
+  geom_point(data=diskData, aes(x=condition, y=zoneInhibition, shape = factor(tech.rep), color = factor(bio.rep)), size=4)+
+  facet_grid(.~strain)+
+  labs(title =expression(paste("Zone of inhibition")), x = "condtion",shape = "tech rep", color = "bio rep") 
+
+ggplot()+#both PA and Sa
+  geom_point(data=diskDataStats, aes(x=condition, y=meanZone, color =  strain), size=4)+
+  geom_errorbar(aes(x = condition, ymin=meanZone-SEZone, ymax=meanZone+SEZone, color = strain), data =diskDataStats, width=.2, size = 1)+
+  labs(title =expression(paste("Zone of inhibition")), x = "condtion",shape = "tech rep", color = "bio rep") 
+
+```

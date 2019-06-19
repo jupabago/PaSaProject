@@ -1,0 +1,98 @@
+---
+title: "Microscopy Data"
+author: "Juan P Barraza"
+date: "6/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
+PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
+PA01wt<- c('3-26-19','4-18-19')
+PA01mut<- c('4-23-19')
+
+Get<- function (sample){
+  bugCounts<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/", sample,"/results"),header = TRUE)
+  bugCounts<- na.omit(bugCounts)
+  bugCounts<-bugCounts %>% mutate(logTranformed = log10(CFU))
+  bugCounts$sample<-sample
+  return(bugCounts)
+}
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+
+testFile2<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/3-13-19/results/t00_p1.csv"
+
+GetResults<-function(sample){
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/results')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  for (position in 0:5){
+    currentPosition<-fileList[grep(paste0("p",position,"."),fileList)]
+    for (timepoint in 0:17){
+      currentTimePoint<-currentPosition[grep(paste0("t",GetNumber(timepoint),"_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, position, timepoint))}}
+return(growthDf)
+}
+
+testGetResults<- GetResults("3-13-19")
+
+ReadResultsFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab
+  datos <-read.csv(file, header = FALSE)
+  colnames(datos)<-c('Red', 'Green', 'Slice')
+  datos<-datos %>% mutate(Position = position)
+  datos<-datos %>% mutate(TimePoint = timepoint)
+  return(datos)
+}
+```
+
+## Including Plots
+```{r aggregates}
+
+testFile2<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/3-13-19/aggregateSizes/t00_p1.csv"
+
+GetAggregates<-function(sample){
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/aggregateSizes')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  for (position in 0:5){
+    currentPosition<-fileList[grep(paste0("p_",position,"."),fileList)]
+    for (timepoint in 0:17){
+      currentTimePoint<-currentPosition[grep(paste0("t_",GetNumber(timepoint),"_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadAggregateFile(currentTimePoint, position, timepoint))}}
+return(growthDf)
+}
+
+testGetResults<- GetResults("3-13-19")
+
+ReadAggregateFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab
+  datos <-read.csv(file, header = TRUE)
+  colnames(datos)<-c('Size', 'Species')
+  datos<-datos %>% mutate(Position = position)
+  datos<-datos %>% mutate(TimePoint = timepoint)
+  return(datos)
+}
+
+testReadAggregateFile<-ReadAggregateFile(tes)
+```
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+GetNumber<-function(idx){
+  if (idx<10){
+    idx = paste0(0,idx)
+  }
+  return (idx)
+}
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
