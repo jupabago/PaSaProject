@@ -58,7 +58,7 @@ ReadResultsFile<-function(file, position, timepoint){#This function outputs tota
 ## Including Plots
 ```{r aggregates}
 
-testFile2<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/3-13-19/aggregateSizes/t00_p1.csv"
+testAggFile1<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/3-13-19/aggregateSizes/t_00p_1.csv"
 
 GetAggregates<-function(sample){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/aggregateSizes')
@@ -67,12 +67,17 @@ GetAggregates<-function(sample){
   for (position in 0:5){
     currentPosition<-fileList[grep(paste0("p_",position,"."),fileList)]
     for (timepoint in 0:17){
-      currentTimePoint<-currentPosition[grep(paste0("t_",GetNumber(timepoint),"_"),currentPosition)]
-      growthDf<-rbind(growthDf,ReadAggregateFile(currentTimePoint, position, timepoint))}}
+      
+      currentTimePoint<-currentPosition[grep(paste0("t_",GetNumber(timepoint),"p_"),currentPosition)]
+      
+      growthDf<-rbind(growthDf,ReadAggregateFile(currentTimePoint, position, timepoint))
+      
+      }
+    }
 return(growthDf)
 }
 
-testGetResults<- GetResults("3-13-19")
+testGetAggregates<- GetAggregates("3-13-19")
 
 ReadAggregateFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab
   datos <-read.csv(file, header = TRUE)
@@ -82,7 +87,7 @@ ReadAggregateFile<-function(file, position, timepoint){#This function outputs to
   return(datos)
 }
 
-testReadAggregateFile<-ReadAggregateFile(tes)
+testReadAggregateFile<-ReadAggregateFile(testAggFile1, 1 ,2)
 ```
 You can also embed plots, for example:
 
