@@ -6,33 +6,81 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+library(pixmap)
+library(rtiff)
+library(reshape2)
+library(gplots)
+library(dplyr)
+library(gdata)
+library(ggplot2)
+library(cowplot)
+library(magrittr)
+library(tidyr)
+library(purrr)
+
 
 PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
 PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
 PA01wt<- c('3-26-19','4-18-19')
 PA01mut<- c('4-23-19')
+names3<-c('rep1','rep2','rep3')
+names2<-c('rep1','rep2')
 
-Get<- function (sample){
-  bugCounts<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/", sample,"/results"),header = TRUE)
-  bugCounts<- na.omit(bugCounts)
-  bugCounts<-bugCounts %>% mutate(logTranformed = log10(CFU))
-  bugCounts$sample<-sample
-  return(bugCounts)
+```
+
+
+```{r thresholds}
+
+testThresholdFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/3-13-19/threshold/threshold_p_0.csv"
+
+wtThresholds<-MapThreshold(PA14wt, names3)
+mutThresholds<-MapThreshold(PA14mut, names3)
+Pa01Thresholds<-MapThreshold(PA01wt, names2)
+Pa01mutThresholds<-MapThreshold(PA01mut, 'rep1')
+
+MapThreshold<- function(listSamples, reps){
+  mappedData<-map2(listSamples, reps, GetThresholds)
+  boundData<-bind_rows(mappedData)
+  return(boundData)
+  }
+
+GetThresholds<-function(sample, samplename){
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/threshold')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  for (position in 0:5){
+    currentPosition<-fileList[grep(paste0("p_",position,"."),fileList)]
+    growthDf<-rbind(growthDf,ReadThresholdFile(currentPosition, position))}
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
+
+ReadThresholdFile<-function(file, position ){#This function outputs total number of pixels in the csv file from matlab
+  datos <-read.csv(file, header = FALSE)
+  colnames(datos)<-c('Red', 'Green')
+  datos<-datos %>% mutate(Position = position)
+  datos<-datos %>% mutate(TimePoint = row_number()-1)
+  return(datos)
 }
 
 ```
 
-## R Markdown
+```{r biomass}
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+wtResults<-MapResults(PA14wt, names3)
+mutResults<-MapResults(PA14mut, names3)
+Pa01Results<-MapResults(PA01wt, names2)
+Pa01mutResults<-MapResults(PA01mut, 'rep1')
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+MapResults<- function(listSamples, reps){
+  blah <-deparse(substitute(listSamples))
+  mappedData<-map2(listSamples, reps, GetResults)
+  boundData<-bind_rows(mappedData)
+  boundData<-boundData %>% mutate(Strain = blah)
+  return(boundData)
+  }
 
-```{r cars}
-
-testFile2<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/3-13-19/results/t00_p1.csv"
-
-GetResults<-function(sample){
+GetResults<-function(sample, samplename){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/results')
   fileList<-list.files(path = folder, full.names = TRUE)
   growthDf<-data.frame()
@@ -41,43 +89,51 @@ GetResults<-function(sample){
     for (timepoint in 0:17){
       currentTimePoint<-currentPosition[grep(paste0("t",GetNumber(timepoint),"_"),currentPosition)]
       growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, position, timepoint))}}
+  growthDf<-growthDf %>% mutate(Sample = samplename)
 return(growthDf)
 }
 
-testGetResults<- GetResults("3-13-19")
-
-ReadResultsFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab
+ReadResultsFile<-function(file, position, timepoint){
   datos <-read.csv(file, header = FALSE)
   colnames(datos)<-c('Red', 'Green', 'Slice')
   datos<-datos %>% mutate(Position = position)
   datos<-datos %>% mutate(TimePoint = timepoint)
   return(datos)
 }
+
+
 ```
 
 ## Including Plots
 ```{r aggregates}
 
-testAggFile1<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/3-13-19/aggregateSizes/t_00p_1.csv"
+wtAggregates<-MapAggregates(PA14wt, names3)
+mutAggregates<-MapAggregates(PA14mut, names3)
+Pa01Results<-MapAggregates(PA01wt, names2)
+Pa01mutResults<-MapAggregates(PA01mut, 'rep1')
 
-GetAggregates<-function(sample){
+MapAggregates<- function(listSamples, reps){
+  mappedData<-map2(listSamples, reps, GetAggregates)
+  boundData<-bind_rows(mappedData)
+  blah <-deparse(substitute(listSamples))
+  boundData<-boundData %>% mutate(Strain = blah)#needs to be two lines, it doesnt work if you do it directly
+  return(boundData)
+  }
+
+GetAggregates<-function(sample, samplename){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/aggregateSizes')
   fileList<-list.files(path = folder, full.names = TRUE)
   growthDf<-data.frame()
   for (position in 0:5){
     currentPosition<-fileList[grep(paste0("p_",position,"."),fileList)]
     for (timepoint in 0:17){
-      
       currentTimePoint<-currentPosition[grep(paste0("t_",GetNumber(timepoint),"p_"),currentPosition)]
-      
       growthDf<-rbind(growthDf,ReadAggregateFile(currentTimePoint, position, timepoint))
-      
       }
-    }
+  }
+  growthDf<-growthDf %>% mutate(Sample = samplename)
 return(growthDf)
 }
-
-testGetAggregates<- GetAggregates("3-13-19")
 
 ReadAggregateFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab
   datos <-read.csv(file, header = TRUE)
@@ -87,11 +143,12 @@ ReadAggregateFile<-function(file, position, timepoint){#This function outputs to
   return(datos)
 }
 
-testReadAggregateFile<-ReadAggregateFile(testAggFile1, 1 ,2)
+
 ```
 You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
+```{r support functions, echo=FALSE}
+
 GetNumber<-function(idx){
   if (idx<10){
     idx = paste0(0,idx)
