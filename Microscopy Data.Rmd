@@ -3,6 +3,8 @@ title: "Microscopy Data"
 author: "Juan P Barraza"
 date: "6/19/2019"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -25,25 +27,27 @@ PA01wt<- c('3-26-19','4-18-19')
 PA01mut<- c('4-23-19')
 names3<-c('rep1','rep2','rep3')
 names2<-c('rep1','rep2')
+names1<-c('rep1')
+figuresPath<-"/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Figures"#this is to save the figures as I am making them
 
 ```
 
 
 ```{r thresholds}
-
-testThresholdFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/3-13-19/threshold/threshold_p_0.csv"
-
-wtThresholds<-MapThreshold(PA14wt, names3)
-mutThresholds<-MapThreshold(PA14mut, names3)
-Pa01Thresholds<-MapThreshold(PA01wt, names2)
-Pa01mutThresholds<-MapThreshold(PA01mut, 'rep1')
-
 MapThreshold<- function(listSamples, reps){
   mappedData<-map2(listSamples, reps, GetThresholds)
   boundData<-bind_rows(mappedData)
+  blah <-deparse(substitute(listSamples))#this is to obtain the name of the list as a string
+  boundData<-boundData %>% mutate(Strain = blah)#this inserts the name into a column, but it wont work in just one line =(
+  boundData<- gather(boundData, "Color", "Value", -Position, -Sample, -TimePoint, -Strain)
+  boundData<-boundData %>% mutate(Condition = recode(Position, "0" = "Sa Mono", "1" = "Pa Mono", "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10") )%>% mutate(Species = recode(Color, "Red" = "Sa", "Green" = "Pa"))
+  boundData$Condition<-as.factor(boundData$Condition)
+  boundData$Condition<-factor(boundData$Condition, levels = c("Sa Mono", "Pa Mono", "Pa:Sa 1:1", "Pa:Sa 1:10", "Pa:Sa 1:100","Pa:Sa 10:1"))
+  boundData$Species<-as.factor(boundData$Species)
+  boundData$Strain<-as.factor(boundData$Strain)
   return(boundData)
-  }
-
+}
+ 
 GetThresholds<-function(sample, samplename){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/threshold')
   fileList<-list.files(path = folder, full.names = TRUE)
@@ -59,24 +63,52 @@ ReadThresholdFile<-function(file, position ){#This function outputs total number
   datos <-read.csv(file, header = FALSE)
   colnames(datos)<-c('Red', 'Green')
   datos<-datos %>% mutate(Position = position)
+  datos$Position<-as.factor(datos$Position)
   datos<-datos %>% mutate(TimePoint = row_number()-1)
   return(datos)
 }
 
+wtThresholds<-MapThreshold(PA14wt, names3)
+mutThresholds<-MapThreshold(PA14mut, names3)
+Pa01Thresholds<-MapThreshold(PA01wt, names2)
+Pa01mutThresholds<-MapThreshold(PA01mut, names1)
+
+thresholdData<-rbind(wtThresholds,mutThresholds,Pa01Thresholds,Pa01mutThresholds)
+
+#This is to get an idea of the thresholding levels
+#this is for all samples
+ggplot()+
+  geom_jitter(data=thresholdData %>% filter(Species=="Pa"),height = 0, width = .1, aes(x=TimePoint, y=Value, shape = Sample, color = Strain), size=3)+
+  facet_grid(.~Condition)
+#This is only for PA14 since they seem to be the most consistent
+ggplot()+
+  geom_jitter(data=PA14thresholdData %>% filter(Species=="Pa"),height = 0, width = .1, aes(x=TimePoint, y=Value, shape = Sample, color = Strain), size=3)+
+  facet_grid(.~Condition)
+
+PA14thresholdData <-thresholdData%>%filter(Species=="Pa") %>% filter(Strain %in% c("PA14wt", "PA14mut"))
+
+
+
+  #scale_y_log10(name=expression(paste('CFUs per mL' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  #geom_vline(xintercept=3, linetype = "dashed")+
+  #annotate("text", x = 3, y = 10e6, label = "TOB added")+
+  #labs(title =expression(paste(italic("S. aureus"), " growth in mono or coculture in SCFM2 with 128 ug/mL TOB")), x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
+
+
 ```
 
-```{r biomass}
-
-wtResults<-MapResults(PA14wt, names3)
-mutResults<-MapResults(PA14mut, names3)
-Pa01Results<-MapResults(PA01wt, names2)
-Pa01mutResults<-MapResults(PA01mut, 'rep1')
-
+```{r biomass functions}
 MapResults<- function(listSamples, reps){
   blah <-deparse(substitute(listSamples))
   mappedData<-map2(listSamples, reps, GetResults)
   boundData<-bind_rows(mappedData)
   boundData<-boundData %>% mutate(Strain = blah)
+  boundData<-gather(boundData,"Color","Value",-Slice,-Position,-Sample,-TimePoint,-Strain) %>% mutate(LogValue=ifelse(Value>0,log10(Value),0))
+  boundData<-boundData %>% mutate(Condition = recode(Position, "0" = "Sa Mono", "1" = "Pa Mono", "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10" )) %>% mutate(Species = recode(Color, "Red" = "Sa", "Green" = "Pa")) %>% mutate(ZDistance = Slice *0.44)
+  boundData$Condition<-as.factor(boundData$Condition)
+  boundData$Condition<-factor(boundData$Condition, levels = c("Sa Mono", "Pa Mono", "Pa:Sa 1:1", "Pa:Sa 1:10", "Pa:Sa 1:100","Pa:Sa 10:1"))
+  boundData$Species<-as.factor(boundData$Species)
+  boundData$Strain<-as.factor(boundData$Strain)
   return(boundData)
   }
 
@@ -100,18 +132,212 @@ ReadResultsFile<-function(file, position, timepoint){
   datos<-datos %>% mutate(TimePoint = timepoint)
   return(datos)
 }
+```
+#Biomass per slice.  
+
+Where is the majority of the biomass at any given time and How dos it grow over time.
+It additionally helps identify how reproducible are the experiments
+```{r biomass per slice}
+#Run the biomass functions on each set of samples and combine them at the end 
+wtResults<-MapResults(PA14wt, names3)
+mutResults<-MapResults(PA14mut, names3)
+Pa01Results<-MapResults(PA01wt, names2)
+Pa01mutResults<-MapResults(PA01mut, names1)
+
+ResultsData<-rbind(wtResults,mutResults,Pa01Results,Pa01mutResults)
+
+#This function uses facets to show the abundance of cells according to height over time
+GraphSlices<-function (data, bug, facete){
+  #first which bug is being selected
+  if(bug=="Sa"){data <-data %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");nombre<-"S. aureus"}
+  if(bug=="Pa"){data<-data %>% filter(Species == "Pa")%>% filter(!Condition == "Sa Mono");nombre<-"P. aeruginosa"}
+  #then what kind of facet can be used
+  if(missing(facete)){facete=facet_grid(Condition~TimePoint);condicion <- "Strain";forma <- NULL}
+  else{facete <-facet_wrap(~TimePoint,ncol = 6 );condicion <- "Condition";forma<-"Strain"}
+  ggplot()+
+    geom_point(data=data, aes_string(x="ZDistance", y="Value", color = condicion, shape = forma),size=1)+
+    scale_y_log10(name=expression(paste('Biomass from voxel counts' )), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    #labs(title =expression(paste(italic(nombre), " biomass value per slice in SCFM2" )),  x = "Distance from bottom (z-slice)")+
+    labs(title =paste0(nombre, " biomass value per slice in SCFM2" ),  x = "Distance from bottom (z-slice)")+
+    facete
+}
+
+ggsave("Sa z-slice condition-timepoint.png", plot = GraphSlices(ResultsData, "Sa"), path = figuresPath)
+ggsave("Sa z-slice timepoint.png", plot = GraphSlices(ResultsData, "Sa", "BLAH"), path = figuresPath)
+ggsave("Pa z-slice condition-timepoint.png", plot = GraphSlices(ResultsData, "Pa"), path = figuresPath)
+ggsave("Pa z-slice timepoint.png", plot = GraphSlices(ResultsData, "Pa", "BLAH"), path = figuresPath)
+
+#This graph shows how the distribution of biomass changes over time per experiment.
+GraphSlicesTime<-function(datos, bug, strain){
+  if(bug=="Sa"){datos<-datos %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");nombre<-"S. aureus"}
+  if(bug=="Pa"){datos<-datos %>% filter(Species == "Pa")%>% filter(!Condition == "Sa Mono");nombre<-"P. aeruginosa"}
+  ggplot()+
+    geom_point(data=datos %>% filter(Strain == strain) , aes(x=ZDistance, y=Value, color = TimePoint),size=1)+
+    scale_y_log10(name=expression(paste('Biomass from voxel counts' )), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    labs(title =paste(bug, "biomass value per slice in SCFM2 using",strain  ),  x = "Distance from bottom (z-slice)")+
+    facet_grid(Condition~Sample)
+}
+
+ggsave("Sa z-slice PA14wt grid.png", plot = GraphSlicesTime(ResultsData, "Sa", "PA14wt"), path = figuresPath)
+ggsave("Sa z-slice PA14mut grid.png", plot = GraphSlicesTime(ResultsData, "Sa", "PA14mut"), path = figuresPath)
+ggsave("Pa z-slice PA14wt grid.png", plot = GraphSlicesTime(ResultsData, "Pa", "PA14wt"), path = figuresPath)
+ggsave("Pa z-slice PA14mut grid.png", plot = GraphSlicesTime(ResultsData, "Pa", "PA14mut"), path = figuresPath)
+
+```
+
+Data from S. aureus. 
+Remember that all mono cultures of Sa are essentially the same: Same strain, same inoculum, same condition. So this is the only condition where you have several replicates.
+```{r biomass Sa}
+#Now that I have analyzed the individual slices, I can analyze each time point
+cleanResults<-ResultsData %>% group_by(TimePoint,Sample,Strain,Condition,Species) %>% summarise(Totals = sum (Value))%>% mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))
+cleanResultsStats<-cleanResults %>% group_by(TimePoint,Strain,Condition,Species) %>% summarise(MeanTotals = mean(Totals), MeanLogTotals = mean(LogTotals), SDTotals = sd(Totals),SDLogTotals = sd(LogTotals)) 
+
+cleanResultsStats1<-cleanResultsStats %>% mutate(CheckLog = MeanLogTotals^10) %>% mutate(CheckLog2 = log10(MeanTotals)) %>% mutate(DiffLog = abs(MeanLogTotals-CheckLog2)) %>% mutate(DiffTotals = abs(MeanTotals - CheckLog))
+
+
+GraphGrowthCurves<-function (dataRaw, dataStats, bug){
+  if(bug=="Sa"){dataRaw<-dataRaw %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");
+  dataStats<-dataStats %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");nombre<-"S. aureus"}
+  if(bug=="Pa"){dataRaw<-dataRaw %>% filter(Species == "Pa")%>% filter(!Condition == "Sa Mono");
+  dataStats<-dataStats %>% filter(Species == "Pa")%>% filter(!Condition == "Sa Mono");nombre<-"P. aeruginosa"}
+  ggplot()+
+    geom_point(data=dataRaw, aes(x=TimePoint, y=Totals),  color = "Black", size=2)+
+    geom_point(data=dataStats, aes(x=TimePoint, y=MeanTotals),  color = "Red", size=2)+
+    geom_line(data=dataStats, aes(x=TimePoint, y=MeanTotals),  color = "Red", size=2)+
+    scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    labs(title =paste(bug, " growth in mono in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control")+
+    facet_grid(Condition~Strain)
+}
+GraphGrowthCurvesExp<-function (dataRaw,dataStats, bug){
+  if(bug=="Sa"){dataRaw<-dataRaw %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");
+  dataStats<-dataStats %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");colore<-"Red"}
+  if(bug=="Pa"){dataRaw<-dataRaw %>% filter(Species == "Pa")%>% filter(!Condition == "Sa Mono");
+  dataStats<-dataStats %>% filter(Species == "Pa")%>% filter(!Condition == "Sa Mono");colore<-"Green"}
+  ggplot()+
+    geom_point(data=dataRaw, aes(x=TimePoint, y=LogTotals),  color = "Black", size=2)+
+    geom_point(data=dataStats, aes(x=TimePoint, y=MeanLogTotals),  color = colore, size=2)+
+    geom_line(data=dataStats, aes(x=TimePoint, y=MeanLogTotals),  color = colore, size=2)+
+    labs(title =paste(bug, " growth in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control")+
+    facet_grid(Condition~Strain)
+}
+GraphGrowthCurvesExpClean<-function (dataRaw, dataStats, bug){
+  if(bug=="Sa"){dataStats<-dataStats %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");colore<-"Red"}
+  if(bug=="Pa"){dataStats<-dataStats %>% filter(Species == "Pa")%>% filter(!Condition == "Sa Mono");colore<-"Green"}
+  ggplot()+
+    geom_point(data=dataStats, aes(x=TimePoint, y=MeanLogTotals,  color = Condition), size=2)+
+    geom_line(data=dataStats, aes(x=TimePoint, y=MeanLogTotals,  color = Condition), size=2)+
+    labs(title =paste(bug, " growth in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control")+
+    facet_grid(.~Strain)
+}
+
+GraphGrowthCurvesExp(cleanResults,cleanResultsStats, "Sa")
+GraphGrowthCurvesExp(cleanResults,cleanResultsStats, "Pa")
+GraphGrowthCurvesExpClean(cleanResults,cleanResultsStats, "Sa")
+GraphGrowthCurvesExpClean(cleanResults,cleanResultsStats, "Pa")
+
+#First Isolate Sa Mono
+
+cleanResultsSaMono<- cleanResultsSa %>% filter(Condition == "Sa Mono")
+
+ggplot()+
+  geom_point(data=cleanResultsSa %>% filter(Condition == "Sa Mono"), aes(x=TimePoint, y=Totals),  color = "Black", size=2)+
+  geom_smooth(data=cleanResultsSaMono, aes(x=TimePoint, y=Totals), size=3, color = "red")+
+  scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
+
+ggplot()+
+  geom_point(data=cleanResultsSa, aes(x=TimePoint, y=Totals, shape = NULL,  color =Strain), size=3)+
+  scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_grid(~Condition)+
+  labs(title =expression(paste(italic("S. aureus"), " growth in mono or coculture in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
+
+#Now Sa Co-culture
+cleanResultsSaCo<- cleanResultsSa %>% filter(!Condition == "Sa Mono")
+ggplot()+
+  geom_point(data=cleanResultsSaCo, aes(x=TimePoint, y=Totals,  color = Strain), size=2)+
+  geom_smooth(data=cleanResultsSaCo, aes(x=TimePoint, y=Totals, color = Strain), size=3)+
+  scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control")+
+  facet_grid(~Condition)
+
+
 
 
 ```
 
+```{r growth rates Sa}
+
+#first try to fit it to a model fro exponential growth:
+exponential.model <- lm(log(cleanResultsSaMono$Totals)~ cleanResultsSaMono$TimePoint)
+summary(exponential.model)
+
+#not very good... So I found the package "growthrates", so I'll try that
+#https://cran.r-project.org/web/packages/growthrates/vignettes/Introduction.html
+splitted.data <- multisplit(cleanResultsSaMono, c("Strain", "Sample"))
+dat<-splitted.data[[1]]
+fit <- fit_easylinear(dat$TimePoint, dat$Totals)
+summary(fit)#summary of values
+coef(fit) #exponential growth parameters
+rsquared(fit)  # coefficient of determination (of log-transformed data)
+deviance(fit)  # residual sum of squares of log-transformed data
+
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+many_fits <- all_easylinear(Totals ~ TimePoint | Strain + Sample, data = cleanResultsSaMono, h = 4)#the h is the number of points considered for fit
+
+par(mfrow = c(3, 3))#establish the grid
+plot(many_fits,log = "y")#plot many things
+testdf<-data.frame(as.list(rsquared))#convert to data frame
+
+#this is the mean rsquared for the growth curves. Not super useful, but it is the syntax for more interesting stuff
+pa14GrowthRates<- testdf %>% select(contains("PA14")) %>% gather() %>% summarise(mean = mean(value))
+#Now with all the conditions and find different growth rates
+
+
+
+
+
+```
+
+Data from P. aeruginosa
+
+This is a completely different story since I used different Strains of Pa throughout the project. So here they are:
+```{r biomass Pa}
+cleanResultsPaMono<- cleanResultsPa %>% filter(Condition == "Pa Mono")
+ggplot()+
+  geom_point(data=cleanResultsPaMono, aes(x=TimePoint, y=Totals, color =Strain), size=2)+
+  geom_smooth(data=cleanResultsPaMono, aes(x=TimePoint, y=Totals, color = Strain), size=3)+
+  #geom_smooth(data=cleanResultsPaMono, method = "gam",  aes(x=TimePoint, y=Totals, color = Strain), linetype = "dashed", size=3)+
+  scale_y_log10(limits= c(1e4,1e7), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))
+  #facet_grid(~Strain)
+
+#model to Fit into an exponential 
+```
+
+
+
+
+```{r biomass Pa and Sa}
+ggplot()+
+  geom_point(data=cleanResultsSaMono, aes(x=TimePoint, y=Totals),  color = "Black", size=2)+
+  geom_point(data=cleanResultsPaMono, aes(x=TimePoint, y=Totals, color =Strain), size=2)+
+  geom_smooth(data=cleanResultsPaMono, aes(x=TimePoint, y=Totals, color = Strain), size=3)+
+  geom_smooth(data=cleanResultsSaMono, aes(x=TimePoint, y=Totals), size=3, color = "red")+
+  #geom_smooth(data=cleanResultsPaMono, method = "gam",  aes(x=TimePoint, y=Totals, color = Strain), linetype = "dashed", size=3)+
+  scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass in voxels' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =expression(paste(italic("S. aureus"), " and ", italic("P. aeruginosa"), "growth in mono in SCFM2" )),  x = "Time (hours)")
+
+ggplot()+
+  scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
+
+
+
+```
 ## Including Plots
 ```{r aggregates}
-
-wtAggregates<-MapAggregates(PA14wt, names3)
-mutAggregates<-MapAggregates(PA14mut, names3)
-Pa01Results<-MapAggregates(PA01wt, names2)
-Pa01mutResults<-MapAggregates(PA01mut, 'rep1')
-
 MapAggregates<- function(listSamples, reps){
   mappedData<-map2(listSamples, reps, GetAggregates)
   boundData<-bind_rows(mappedData)
@@ -142,6 +368,11 @@ ReadAggregateFile<-function(file, position, timepoint){#This function outputs to
   datos<-datos %>% mutate(TimePoint = timepoint)
   return(datos)
 }
+
+wtAggregates<-MapAggregates(PA14wt, names3)
+mutAggregates<-MapAggregates(PA14mut, names3)
+Pa01Results<-MapAggregates(PA01wt, names2)
+Pa01mutResults<-MapAggregates(PA01mut, 'rep1')
 
 
 ```
