@@ -14,6 +14,9 @@ imred = imbinarize(imred);
 %testThresholdImage = ThresholdImage(path, date, name, 40, 1, 4);
 %[thR,thG] = CollectThresholds(path, date, name, slices,17, 4);
 %testThresholdImages = ThresholdImage(path, date, name, slices, 17, 4,thR,thG);
+
+%{
+%This is how to run the script while you calculate the threshold per image:
 pa14wt_1 = GetImageData(path, '3-13-19', '62x_Salac_Pa14wt_SaPa14wt=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_3-13-19', slices, timepoints, positions);
 pa14wt_2 = GetImageData(path, '3-19-19', '62x_Salac_Pa14wt_SaPa14wt=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_3-19-19', slices, timepoints, positions);
 pa14wt_3 = GetImageData(path, '4-17-19', '62x_Salac_Pa14wt_SaPa14wt1-11-10100-110-1_co_SCFM2_tile2x2_4-17-19', slices, timepoints, positions);
@@ -27,6 +30,31 @@ pao1wt_2 = GetImageData(path, '4-18-19', '62x_Salac_Pa01wt_SaPa01wt=1-1,1-10,100
 pao1mut_1 = GetImageData(path, '4-23-19', '62x_Salac_Pa01pqsL_SaPa01pqsL=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_4-23-19', slices, timepoints, positions);
 
 extra = GetImageData(path, '3-28-19', '62x_SaLac-PA14wt-PA14pqsL-SaPa14wt-SaPa14pqsL-bkgd_co_SCFM2_18hrTimeLapse_tile2x2_3-28-18', 139, 11, positions);
+%}
+
+%This is how to do it with the thresholds calculated from analyzing the
+%thresholds from previous analysis
+SaThreshold = ones(18,1)*0.2143;
+Pa14wtThreshold = ones(18,1)*0.081486;
+Pa14mutThreshold = ones(18,1)*0.077379;
+pa14wt_1 = GetImageData2(path, '3-13-19', '62x_Salac_Pa14wt_SaPa14wt=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_3-13-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);
+pa14wt_2 = GetImageData2(path, '3-19-19', '62x_Salac_Pa14wt_SaPa14wt=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_3-19-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);                                           
+pa14wt_3 = GetImageData2(path, '4-17-19', '62x_Salac_Pa14wt_SaPa14wt1-11-10100-110-1_co_SCFM2_tile2x2_4-17-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);
+                                           
+pa14mut_1 = GetImageData2(path, '4-24-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_4-24-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
+pa14mut_2 = GetImageData2(path, '4-25-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_4-25-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
+pa14mut_3 = GetImageData2(path, '5-8-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_5-8-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
+
+
+function image = GetImageData2(path, date, name, slices, timepoints, positions, thR, thG)
+tic    
+    for position = 0:positions
+        %[thR,thG] = CollectThresholds(path, date, name, slices, timepoints, position);
+        ThresholdImage(path, date, name, slices, timepoints, position,thR,thG);
+        toc
+    end
+    image = 1;
+end
 
 function image = GetImageData(path, date, name, slices, timepoints, positions)
 tic    
@@ -73,9 +101,9 @@ function [ThresholdRed,ThresholdGreen] = CollectThresholds(path, date, name, sli
 end
 
 function thresholdedImages = ThresholdImage(path, date, name, slices, timepoints, position, redThreshold,greenThreshold)
-imagesfilepath = strcat(path, date,'/images');%declare name of directory to put images in
+imagesfilepath = strcat(path, date,'/images1');%declare name of directory to put images in
 [~,~] = mkdir(imagesfilepath);%create directory if it hasn't been created. double wiggly thing is to prevent it from throwing warning
-resultsfilePath = strcat(path, date,'/results');
+resultsfilePath = strcat(path, date,'/results1');
 [~,~] = mkdir(resultsfilePath);
 
 for timepoint = 0:timepoints
