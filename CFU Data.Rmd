@@ -1,0 +1,76 @@
+---
+title: "Growth Curves Paper"
+author: "Juan P Barraza"
+date: "8/14/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(pixmap)
+library(rtiff)
+library(reshape2)
+library(gplots)
+library(dplyr)
+library(gdata)
+library(ggplot2)
+library(cowplot)
+library(magrittr)
+library(tidyr)
+library(plotrix)
+library(purrr)
+
+#Data gathering functions:
+GetGrowthCurveReplicate<- function (sample){
+  bugCounts<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/GrowthCurves/", sample, ".csv"),header = TRUE)
+  bugCounts<- na.omit(bugCounts)
+  bugCounts<-bugCounts %>% mutate(logCFU = log10(CFU))
+  bugCounts$sample<-sample
+  return(bugCounts)
+}
+GetGrowthCurveCondition<-function(datalist){
+  mappedData<-map(datalist, GetGrowthCurveReplicate)#this line reads all the files on the list
+  boundData<-bind_rows(mappedData)
+  colnames(boundData)[5] <- "strain"
+  colnames(boundData)[8] <- "condition"
+  return(boundData)
+}
+#Graphing functions
+##this one graphs the log values
+GraphGrowthCurveLog<-function (rawData, statsData){
+    ggplot()+
+    geom_point(data=rawData, aes(x=time, y=logCFU,color = bug, shape = strain),   size=2)+
+    geom_point(data=statsData, aes(x=time, y=logCFUmean,  color = bug, shape = strain), size=2)+
+    geom_line(data=statsData, aes(x=time, y=logCFUmean,  color = bug, linetype = strain), size=2)+
+    #geom_errorbar(data=statsData, aes(x = time, ymin = logCFUmean-logCFUsd, ymax = logCFUmean+logCFUsd, color = bug, linetype = strain), width = 0, size = 1)+
+    geom_errorbar(data=statsData, aes(x = time, ymin = logCFUmean-logCFUse, ymax = logCFUmean+logCFUse, color = bug, linetype = strain), width = 0, size = 1)+
+    labs(title =paste("Growth in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Bug")+
+    facet_grid(.~condition)
+}
+##this one graphs the normal values
+GraphGrowthCurve<-function (rawData, statsData){
+    ggplot()+
+    geom_point(data=rawData, aes(x=time, y=CFU,color = bug, shape = strain),   size=2)+
+    geom_point(data=statsData, aes(x=time, y=CFUmean,  color = bug, shape = strain), size=2)+
+    geom_line(data=statsData, aes(x=time, y=CFUmean,  color = bug, linetype = strain), size=2)+
+    geom_errorbar(data=statsData, aes(x = time, ymin = CFUmean-CFUsd, ymax = CFUmean+CFUsd, color = bug, linetype = strain), width = 0, size = 1)+
+    labs(title =paste("Growth in SCFM2" ),  x = "Time (hours)",shape = "strain", color = "Bug")+
+    scale_y_log10(name=expression(paste('CFUs per mL' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    facet_grid(.~condition)
+}
+```
+
+```{r results}
+#these are the list with the spreadsheets of experiments under different conditions
+PA14 = c('2-11-19','2-7-19','2-5-19')
+#get data
+PA14Data<-GetGrowthCurveCondition(PA14)
+#do stats
+PA14DataStats<-PA14Data%>% group_by(condition, bug, time,strain) %>% summarise(CFUmean = mean (CFU), CFUsd = sd(CFU), CFUse = std.error(CFU), logCFUmean = mean (logCFU), logCFUsd = sd(logCFU),logCFUse = std.error(logCFU))
+#Graph logs
+GraphGrowthCurveLog(PA14Data,PA14DataStats)
+#Graph regular numbers
+GraphGrowthCurve(PA14Data,PA14DataStats)
+
+```
