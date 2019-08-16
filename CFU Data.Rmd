@@ -20,6 +20,7 @@ library(magrittr)
 library(tidyr)
 library(plotrix)
 library(purrr)
+library(moderndive)
 
 #Data gathering functions:
 GetGrowthCurveReplicate<- function (sample){
@@ -61,7 +62,7 @@ GraphGrowthCurve<-function (rawData, statsData){
 }
 ```
 
-```{r results}
+```{r CFU results}
 #these are the list with the spreadsheets of experiments under different conditions
 PA14 = c('2-11-19','2-7-19','2-5-19')
 #get data
@@ -73,4 +74,177 @@ GraphGrowthCurveLog(PA14Data,PA14DataStats)
 #Graph regular numbers
 GraphGrowthCurve(PA14Data,PA14DataStats)
 
+```
+
+```{r Confocal vs CFUs data wrangling}
+#first pull confocal data:
+##functions to read data
+MapResults<- function(listSamples, reps){
+  blah <-deparse(substitute(listSamples))
+  mappedData<-map2(listSamples, reps, GetResults)
+  boundData<-bind_rows(mappedData)
+  boundData<-boundData %>% mutate(Strain = blah)
+  boundData<-gather(boundData,"Color","Value",-Slice,-Position,-Sample,-TimePoint,-Strain) %>% mutate(LogValue=ifelse(Value>0,log10(Value),0))
+  boundData<-boundData %>% mutate(Condition = recode(Position, "0" = "Sa Mono", "1" = "Pa Mono", "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10" )) %>% mutate(Species = recode(Color, "Red" = "Sa", "Green" = "Pa")) %>% mutate(ZDistance = Slice *0.44)
+  boundData$Condition<-as.factor(boundData$Condition)
+  boundData$Condition<-factor(boundData$Condition, levels = c("Sa Mono", "Pa Mono", "Pa:Sa 1:1", "Pa:Sa 1:10", "Pa:Sa 1:100","Pa:Sa 10:1"))
+  boundData$Species<-as.factor(boundData$Species)
+  boundData$Strain<-as.factor(boundData$Strain)
+  return(boundData)
+  }
+ReadResultsFile<-function(file, position, timepoint){
+  datos <-read.csv(file, header = FALSE)
+  colnames(datos)<-c('Red', 'Green', 'Slice')
+  datos<-datos %>% mutate(Position = position)
+  datos<-datos %>% mutate(TimePoint = timepoint)
+  return(datos)
+}
+GetResults<-function(sample, samplename){
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data1/',sample,'/results')#the path needs to be "Other Data1"
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  for (position in 0:5){
+    currentPosition<-fileList[grep(paste0("p",position,"."),fileList)]
+    for (timepoint in 0:17){
+      currentTimePoint<-currentPosition[grep(paste0("t",GetNumber(timepoint),"_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, position, timepoint))}}
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
+
+PA14wt<- c('3-13-19', '3-19-19', '4-17-19')#sample names 
+PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
+names3<-c('rep1','rep2','rep3')
+
+wtConfocalResults<-MapResults(PA14wt, names3)
+mutConfocalResults<-MapResults(PA14mut, names3)
+#combine them:
+allConfocalResults<-rbind(wtConfocalResults,mutConfocalResults)
+#Get stats:
+##this adds up all the data on each slice and then gets the log of that total
+allConfocalResults<-allConfocalResults %>% group_by(TimePoint,Sample,Strain,Condition,Species) %>% summarise(Totals = sum (Value))%>% mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))
+
+##this calculates mean and error
+allConfocalResultsStats<-allConfocalResults %>% group_by(TimePoint,Strain,Condition,Species) %>% summarise(MeanTotals = mean(Totals), SDTotals = sd(Totals), MeanLogTotals = mean(LogTotals), SDLogTotals = sd(LogTotals)) 
+
+##remove all the conditions I didn't do in the plate counts and fix time points:
+DataComparisonScope<-allConfocalResultsStats %>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,3,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
+
+##remove conditions I didn't do in the scope and fix strain names:
+DataComparisonCFU<-PA14DataStats %>% filter (condition == "Static") %>% select(bug, strain, CFUmean, logCFUmean, condition, time)%>% as.data.frame() %>% mutate(Strain = recode(DataComparisonCFU$strain, wt = "PA14wt", mut = "PA14mut"))
+
+#name columns so that they match with the columns in the other df
+colnames(DataComparisonCFU)<- c("Species", "strain", "CFUs", "logCFUs","Static", "time", "Strain")
+
+#merge data frames and fix numeric for time
+comparisonDf <- merge(DataComparisonCFU,DataComparisonScope,by=c("Species","Strain", "time"))
+comparisonDf$time<-as.numeric(as.character(comparisonDf$time))
+
+##Adding more data from the TOB experiments!
+#first select relevant conditions and fix column names
+DataComparisonCFUSa<-newSCFMDataSa%>%  filter(!culture == "mono") %>% filter(antibiotic == "Control") %>% select(CFU, culture, bug, timePoint, antibiotic, logTranformed,sample, condition) %>% group_by(culture, timePoint) %>% summarise(meanCFU = mean(CFU), meanLogCFU = mean(logTranformed))  
+DataComparisonCFUSa<-DataComparisonCFUSa%>% as.data.frame() %>%mutate(Strain = recode(DataComparisonCFUSa$culture, wt = "PA14wt", mut = "PA14mut"))
+
+colnames(DataComparisonCFUSa)<-c("strain", "time", "CFUs", "logCFUs", "Strain")
+#then do the same for the scope data
+DataComparisonScopeSa<-allConfocalResultsStats %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4)) %>% select(Condition,TimePoint, strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
+#merge them!
+comparisonSaDf <- merge(DataComparisonCFUSa,DataComparisonScopeSa,by=c("time","Strain"))
+
+```
+
+```{r graph CFU vs Confocal}
+#Graph both Pa and Sa
+##Original data as input:
+ggplot()+
+    geom_point(data=comparisonDf, aes(x=CFUs, y=MeanTotals,color = Species, shape = Strain),   size=4)+
+    scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))
+
+##Log-tranformed data as input:
+ggplot()+
+    geom_point(data=comparisonDf, aes(x=logCFUs, y=MeanLogTotals, color = Species, shape = Strain),   size=4)
+
+#Pa seems to be pretty straightforward, lets do linear regression:
+Pa14LinearModel <- lm(MeanLogTotals ~logCFUs, data = comparisonDf %>% filter (Species == "Pa"))
+coefficients(Pa14LinearModel)
+get_regression_summaries(Pa14LinearModel, print = TRUE)
+
+##Log-tranformed data as input for PA14 only:
+ggplot()+
+  geom_abline(intercept = 1.9623899, slope = 0.4639804, color = "red", size = 3 )+
+  geom_point(data=comparisonDf%>% filter(Species == "Pa"), aes(x=logCFUs,y=MeanLogTotals,  color = Species, shape = Strain),   size=4)
+#then fit it without the zero point since that was not even at the same time
+Pa14LinearModel1 <- lm(MeanLogTotals ~logCFUs, data = comparisonDf %>% filter (Species == "Pa") %>% filter(!time == 0))
+get_regression_summaries(Pa14LinearModel1, print = TRUE)
+  ggplot()+
+    geom_abline(intercept =-2.882887,slope = 1.006844, color = "red", size = 1, linetype = "dashed" )+
+    geom_point(data=comparisonDf %>% filter(Species == "Pa"), aes(x=logCFUs,y=MeanLogTotals,  color = time, shape = Strain),size=4)+
+    scale_color_gradient(low="blue", high="red")+
+    annotate("text", x = 7.5, y = 6, label = expression(paste("y=1.007x-2.883  ", R^2, "= 0.9")), color = "red", size = 8)+
+    labs(title =expression(paste(italic("P. aeruginosa"), " CFU vs Confocal Biomass")), x = "Log CFUs",y = "Biomass from Scope")
+
+#Now we go to Sa
+SaLinearModel <- lm(MeanLogTotals ~logCFUs, data = comparisonDf %>% filter (Species == "Sa"))
+coefficients(SaLinearModel)
+get_regression_summaries(SaLinearModel, print = TRUE)
+
+SaLinearModel1 <- lm(MeanLogTotals ~logCFUs, data = comparisonDf %>% filter (Species == "Sa")%>% filter(!time == 0))
+coefficients(SaLinearModel1)
+get_regression_summaries(SaLinearModel1, print = TRUE)
+
+ggplot()+
+  geom_point(data=comparisonDf %>% filter(Species == "Sa"), aes(x=logCFUs,y=MeanLogTotals,  color = time, shape = Strain),size=4)+
+  geom_abline(intercept =25.73, slope = -2.44, color = "red", size = 1, linetype = "dashed" )+
+  scale_color_gradient(low="blue", high="red")+
+  annotate("text", x = 7.9, y = 4.75, label = expression(paste("y=-2.44x+25.73  ", R^2, "= 0.619")), color = "red", size = 8)+
+  labs(title =expression(paste(italic("S. aureus"), " CFU vs Confocal Biomass")), x = "Log CFUs",y = "Biomass from Scope")
+
+#Adding the early time points of Staph:
+SaLinearModel2 <- lm(MeanLogTotals ~logCFUs, data = comparisonSaDf%>% filter(!time == 0))
+coefficients(SaLinearModel2)
+get_regression_summaries(SaLinearModel2, print = TRUE)
+ggplot()+
+  geom_point(data=comparisonSaDf %>% filter(Species == "Sa"), aes(x=logCFUs,y=MeanLogTotals,  color = time, shape = Strain),size=4)+
+  geom_abline(intercept =-2.693, slope = 0.928, color = "red", size = 1, linetype = "dashed" )+
+  scale_color_gradient(low="blue", high="red")+
+  annotate("text", x = 7.9, y = 5.2, label = expression(paste("y=0.928x-2.693 ", R^2, "= 0.59")), color = "red", size = 8)+
+  labs(title =expression(paste(italic("S. aureus"), " CFU vs Confocal Biomass")), x = "Log CFUs",y = "Biomass from Scope")
+
+```
+
+```{r using old Sa data instead? Nope, didnt work}
+#Change the function so that it takes the old data
+GetResults<-function(sample, samplename){
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/results')#the path needs to be "Other Data"
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  for (position in 0:5){
+    currentPosition<-fileList[grep(paste0("p",position,"."),fileList)]
+    for (timepoint in 0:17){
+      currentTimePoint<-currentPosition[grep(paste0("t",GetNumber(timepoint),"_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, position, timepoint))}}
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
+wtConfocalResults1<-MapResults(PA14wt, names3)
+mutConfocalResults1<-MapResults(PA14mut, names3)
+#combine them:
+allConfocalResults1<-rbind(wtConfocalResults1,mutConfocalResults1)
+#Get stats:
+##this adds up all the data on each slice and then gets the log of that total
+allConfocalResults1<-allConfocalResults1%>% group_by(TimePoint,Sample,Strain,Condition,Species) %>% summarise(Totals = sum (Value))%>% mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))
+
+##this calculates mean and error
+allConfocalResultsStats1<-allConfocalResults1%>% group_by(TimePoint,Strain,Condition,Species) %>% summarise(MeanTotals = mean(Totals), SDTotals = sd(Totals), MeanLogTotals = mean(LogTotals), SDLogTotals = sd(LogTotals)) 
+
+##remove all the conditions I didn't do in the plate counts and fix time points:
+DataComparisonScope1<-allConfocalResultsStats1 %>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,3,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
+
+comparisonDf1 <- merge(DataComparisonCFU,DataComparisonScope1,by=c("Species","Strain", "time"))
+comparisonDf1$time<-as.numeric(as.character(comparisonDf1$time))
+
+ggplot()+
+    geom_point(data=comparisonDf1 %>% filter(Species == "Sa"), aes(x=logCFUs, y=MeanLogTotals, color = time, shape = Strain),   size=4)+
+  scale_color_gradient(low="blue", high="red")
 ```

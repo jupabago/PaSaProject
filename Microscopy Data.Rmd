@@ -19,6 +19,7 @@ library(cowplot)
 library(magrittr)
 library(tidyr)
 library(purrr)
+library(moderndive)
 
 
 PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
@@ -286,8 +287,6 @@ GraphGrowthCurvesExpClean(cleanResults,cleanResultsStats, "Sa")
 GraphGrowthCurvesExpClean(cleanResults,cleanResultsStats, "Pa")
 
 #First Isolate Sa Mono
-
-
 cleanResultsSa <- cleanResults %>% filter(Species == "Sa")
 cleanResultsSaMono<- cleanResultsSa %>% filter(Condition == "Sa Mono")
 
