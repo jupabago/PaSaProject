@@ -18,7 +18,7 @@ coCultureGCData <-read.csv(coCultureGCFile)
 coCultureGCData%>% group_by(condition, bug, time, strain) %>% summarise(cellCount = mean(countsmL), cellSE = std.error(countsmL),  cellSD = sd(countsmL)) %>% as.data.frame() -> coCultureGCDataStats
 levels(coCultureGCDataStats$condition)<-c("Stirred", "Static")
 
-##this data is from non-exponential phase cultures, but the yeld should be fine for the mono-cultures
+##this data is from non-exponential phase cultures, but the yield should be fine for the mono-cultures
 #Data from PAO1
 nonExpPAO1File<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/PAO1 growth curves.csv"
 nonExpPAO1Data <-read.csv(nonExpPAO1File)
