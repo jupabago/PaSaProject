@@ -21,7 +21,6 @@ library(tidyr)
 library(purrr)
 library(moderndive)
 
-
 PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
 PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
 PA01wt<- c('3-26-19','4-18-19')
@@ -494,12 +493,9 @@ GraphGrowthCurvesExp(cleanResults1,cleanResultsStats1, "Sa")
 GraphGrowthCurvesExpClean(cleanResults%>%filter(Strain%in%c("PA14wt","PA14mut")),cleanResultsStats%>%filter(Strain%in%c("PA14wt","PA14mut")), "Sa")
 GraphGrowthCurvesExpClean(cleanResults1,cleanResultsStats1, "Sa")
 
-
 #Isolate Sa
-
 cleanResultsSa1 <- cleanResults1 %>% filter(Species == "Sa")
 cleanResultsSaMono1<- cleanResultsSa1 %>% filter(Condition == "Sa Mono")
-
 
 ggplot()+
   geom_point(data=cleanResultsSa1 %>% filter(Condition == "Sa Mono"), aes(x=TimePoint, y=Totals),  color = "Black", size=2)+
@@ -507,10 +503,8 @@ ggplot()+
   scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
 
-
 GraphGrowthCurvesExp(cleanResults1,cleanResultsStats1, "Pa")
 GraphGrowthCurvesExpClean(cleanResults1,cleanResultsStats1, "Pa")
-
 
 GraphGrowthCurvesExpCleanCoCulture<-function (dataStats){
   ggplot()+
@@ -520,6 +514,96 @@ GraphGrowthCurvesExpCleanCoCulture<-function (dataStats){
 }
 
 GraphGrowthCurvesExpCleanCoCulture(cleanResultsStats)
+```
+#This 
+```{r new threshold images aggregates data}
+GetAggregates<-function(sample, samplename){
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data1/',sample,'/aggregateSizes1')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  for (position in 0:5){
+    currentPosition<-fileList[grep(paste0("p_",position,"."),fileList)]
+    for (timepoint in 0:17){
+      currentTimePoint<-currentPosition[grep(paste0("t_",GetNumber(timepoint),"p_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadAggregateFile(currentTimePoint, position, timepoint))
+      }
+  }
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
 
+wtAggregates1<-MapAggregates(PA14wt, names3)
+mutAggregates1<-MapAggregates(PA14mut, names3)
+allAggregates<-bind_rows(wtAggregates1,mutAggregates1)
+allAggregates<-allAggregates %>% filter(!Size<0.5)
+
+ggplot()+
+  geom_point(data = allAggregates)
+  scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
+```
+
+```{r new threshold images aggregates graph}
+TotalHistogram<-function(df){
+  biomass<-df$Size
+  totalbiomass<-sum(biomass)
+  upperLim<-max(biomass)+5-mod(max(biomass),5)
+  breaksSequence<-seq(0,upperLim,5)#this makes breaks every 100 pixels
+  histogram<-data.frame()
+  currentHist<-hist(biomass, plot = F, breaks = breaksSequence)
+  histogram<-data.frame(currentHist$counts,currentHist$mids)
+  colnames(histogram)<-c("Counts", "Midpoint")
+  histogram<-histogram[!(histogram$Counts==0),]
+  histogram%>%mutate(BiomassBin=Counts*Midpoint)->histogram
+  histogram%>%mutate(NormBiomassBin=BiomassBin/totalbiomass)->histogram
+  return(histogram)
+}
+
+testSplit<-split(allAggregates, c("Sa","Pa"))
+allAggregates1<-allAggregates %>% filter(Species %in% c("Pa", "Sa"))
+allAggregates$Strain<-as.factor(allData$Strain)
+allAggregates$Sample<-as.factor(allData$Sample)
+allAggregates$TimePoint<-as.factor(allData$TimePoint)
+allAggregates$Position<-as.factor(allData$Position)
+
+allData<-allAggregates %>% group_by(Species, Position, TimePoint, Sample, Strain)
+yas<- group_split(allData)
+
+ggplot()+
+  geom_point(data = allAggregates, aes(x = TimePoint, y= Position, color = Sample, shape = Species))+
+  facet_wrap(.~Strain)
+
+
+
+plotHist3DBiomassCounts<-function(df1, title){
+  ggplot()+
+    geom_point(data=df1,aes(x=Midpoint, y=Counts, color = source))+
+    scale_y_log10(name=expression(paste('counts' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    xlab('Biomass (um^3)')+
+    ylab('Counts')+
+    ggtitle(paste0("Raw biomass Distribution (bin size = 10 um) ",title))
+    #facet_wrap(~TimePoint, nrow=4)
+  }
+plotHist3DBiomassBinBiomass<-function(df1, title){
+  ggplot()+
+    geom_point(data=df1,aes(x=Midpoint, y=BiomassBin, color = source))+
+    scale_y_log10(name=expression(paste('counts' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    xlab('Biomass (um^3)')+
+    ylab('Counts')+
+    ggtitle(paste0("Raw biomass Distribution (bin size = 10 um) ",title))
+    #facet_wrap(~TimePoint, nrow=4)
+  }
+plotHist3DBiomassNormBinBiomass<-function(df1, title){
+  ggplot()+
+    geom_point(data=df1,aes(x=Midpoint, y=NormBiomassBin))+
+    #scale_y_log10(name=expression(paste('counts' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    xlab('Biomass (um^3)')+
+    ylab('Counts')+
+    ggtitle(paste0("Raw biomass Distribution (bin size = 10 um) ",title))
+    #facet_wrap(~TimePoint, nrow=4)
+  }
 
 ```
