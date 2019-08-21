@@ -19,8 +19,7 @@ library(cowplot)
 library(magrittr)
 library(tidyr)
 library(purrr)
-library(moderndive)
-
+#library(moderndive)
 PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
 PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
 PA01wt<- c('3-26-19','4-18-19')
@@ -29,7 +28,6 @@ names3<-c('rep1','rep2','rep3')
 names2<-c('rep1','rep2')
 names1<-c('rep1')
 figuresPath<-"/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Figures"#this is to save the figures as I am making them
-
 GetNumber<-function(idx){
   if (idx<10){
     idx = paste0(0,idx)
@@ -64,7 +62,6 @@ GetThresholds<-function(sample, samplename){
   growthDf<-growthDf %>% mutate(Sample = samplename)
 return(growthDf)
 }
-
 ReadThresholdFile<-function(file, position ){#This function outputs total number of pixels in the csv file from matlab
   datos <-read.csv(file, header = FALSE)
   colnames(datos)<-c('Red', 'Green')
@@ -73,14 +70,11 @@ ReadThresholdFile<-function(file, position ){#This function outputs total number
   datos<-datos %>% mutate(TimePoint = row_number()-1)
   return(datos)
 }
-
 wtThresholds<-MapThreshold(PA14wt, names3)
 mutThresholds<-MapThreshold(PA14mut, names3)
 Pa01Thresholds<-MapThreshold(PA01wt, names2)
 Pa01mutThresholds<-MapThreshold(PA01mut, names1)
-
 thresholdData<-rbind(wtThresholds,mutThresholds,Pa01Thresholds,Pa01mutThresholds)
-
 #This is to get an idea of the thresholding levels
 #this is for all samples of Pa 
 ggplot()+
@@ -89,33 +83,27 @@ ggplot()+
 #This is only for PA14 since they seem to be the most consistent
 PA14thresholdData <-thresholdData%>%filter(Species=="Pa") %>% filter(Strain %in% c("PA14wt", "PA14mut")) %>% group_by(Position, TimePoint, Strain, Condition, Species)%>% summarise(MeanThreshold = mean(Value), SDThreshold = sd(Value))
 PA14average<-PA14thresholdData %>% group_by(Position, Strain, Condition, Species)%>% summarise(MeanThreshold = mean(MeanThreshold), SDThreshold = sd(MeanThreshold))
-
 ggplot()+
   geom_point(data=thresholdData %>% filter(Species=="Pa")%>% filter(Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=Value, shape = Sample, color = Strain), size=2)+
   geom_line(data=PA14thresholdData,aes(x = TimePoint, y = MeanThreshold, color =Strain), size = 1)+
   geom_errorbar(data=PA14thresholdData,aes(x = TimePoint, ymin = MeanThreshold-SDThreshold, ymax = MeanThreshold+SDThreshold, color = Strain), width=.5, size = .5)+
   geom_hline(data = PA14average, aes(yintercept = MeanThreshold, color = Strain), size = 3)+
   facet_grid(.~Condition)
-
 #Now we do Staph
 SathresholdData <-thresholdData%>%filter(Species=="Sa") %>% group_by(Position, TimePoint, Strain, Condition, Species)%>% summarise(MeanThreshold = mean(Value), SDThreshold = sd(Value))
 Saaverage<-SathresholdData %>% group_by(Position, Strain, Condition, Species)%>% summarise(MeanThreshold = mean(MeanThreshold), SDThreshold = sd(MeanThreshold))
-
-
 ggplot()+
   geom_point(data=thresholdData %>% filter(Species=="Sa"), aes(x=TimePoint, y=Value, shape = Sample, color = Strain), size=2)+
   geom_line(data=SathresholdData,aes(x = TimePoint, y = MeanThreshold, color =Strain), size = 1)+
   geom_errorbar(data=SathresholdData,aes(x = TimePoint, ymin = MeanThreshold-SDThreshold, ymax = MeanThreshold+SDThreshold, color = Strain), width=2, size = .1)+
   geom_hline(data = Saaverage, aes(yintercept = MeanThreshold, color = Strain), size = 3)+
   facet_grid(.~Condition)
-
 ```
 
 ```{r threshold weighted growth curves}
 #These are the dataframes that we need to merge
 #I am not entirely sure what this should tell you, but I thought about multiplying the threshold by the value to see if something comes up
 thresholdResultsDf<-merge(cleanResults, thresholdData) %>% mutate(WeightedLogValue = Value*LogTotals) %>% mutate(WeightedValue = Value *Totals) %>% mutate(correctedWeightedLogValue = WeightedLogValue+5) 
-
 thresholdData$Condition<-as.factor(thresholdData$Condition)
  boundData$Condition<-as.factor(boundData$Condition)
   ggplot()+
@@ -127,27 +115,22 @@ ggplot()+
     geom_point(data=thresholdResultsDf%>% filter(Species == "Sa"), aes(x=TimePoint, y=correctedWeightedLogValue,  shape = Sample), size=2)+
     geom_point(data=cleanResults%>% filter(Species == "Sa"), aes(x=TimePoint, y=LogTotals,  shape = Sample), size=2, color = "red")+
     facet_grid(Strain~Condition)
-
 #Linear regressions
 #First get a df with only Sa Mono Red Channel
 SaMonoTrhesholdDf<-thresholdData%>% filter(Condition == "Sa Mono") %>% filter(Species == "Sa")
-
 #Linear regression for Thresholds
 lm(SaMonoTrhesholdDf$Value ~ SaMonoTrhesholdDf$TimePoint) 
 plot(SaMonoTrhesholdDf$TimePoint, SaMonoTrhesholdDf$Value)
 abline( 0.18154, 0.00819 )
-
 #Linear regression for Weighted Growth Curves
 SaMonoWeightedGrowthCurve<-thresholdResultsDf%>% filter(Condition == "Sa Mono") %>% filter(Species == "Sa")
 lmWeighted<-lm(SaMonoWeightedGrowthCurve$WeightedLogValue ~ SaMonoWeightedGrowthCurve$TimePoint) 
 plot(SaMonoWeightedGrowthCurve$TimePoint, SaMonoWeightedGrowthCurve$WeightedLogValue)
 abline( 1.01962, 0.06641 )
-
 #Non-linear model
 ggplot()+
   geom_smooth(data=SaMonoTrhesholdDf, aes(x=TimePoint, y=Value), size=2)+
   geom_point(data=SaMonoTrhesholdDf, aes(x=TimePoint, y=Value), size=2)
-
 ggplot()+
   geom_smooth(data=SaMonoTrhesholdDf, method = lm, aes(x=TimePoint, y=Value), size=2)+
   geom_point(data=SaMonoTrhesholdDf, aes(x=TimePoint, y=Value), size=2)
@@ -159,11 +142,9 @@ Pa14mutMonoTrhesholdDf<-thresholdData%>% filter(Condition == "Pa Mono") %>% filt
 lm(Pa14wtMonoTrhesholdDf$Value ~ Pa14wtMonoTrhesholdDf$TimePoint) 
 plot(Pa14wtMonoTrhesholdDf$TimePoint, Pa14wtMonoTrhesholdDf$Value)
 abline( 0.08775, -0.001566 )
-
 lm(Pa14mutMonoTrhesholdDf$Value ~ Pa14mutMonoTrhesholdDf$TimePoint) 
 plot(Pa14mutMonoTrhesholdDf$TimePoint, Pa14mutMonoTrhesholdDf$Value)
 abline( 0.082315, -0.001234 )
-
 #Non-linear model
 #PA14wt
 ggplot()+
@@ -179,8 +160,6 @@ ggplot()+
 ggplot()+
   geom_smooth(data=Pa14mutMonoTrhesholdDf, aes(x=TimePoint, y=Value), size=2)+
   geom_point(data=Pa14mutMonoTrhesholdDf, aes(x=TimePoint, y=Value), size=2)
-
-
 ```
 
 ```{r biomass functions}
@@ -197,7 +176,6 @@ MapResults<- function(listSamples, reps){
   boundData$Strain<-as.factor(boundData$Strain)
   return(boundData)
   }
-
 GetResults<-function(sample, samplename){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/results')
   fileList<-list.files(path = folder, full.names = TRUE)
@@ -210,7 +188,6 @@ GetResults<-function(sample, samplename){
   growthDf<-growthDf %>% mutate(Sample = samplename)
 return(growthDf)
 }
-
 ReadResultsFile<-function(file, position, timepoint){
   datos <-read.csv(file, header = FALSE)
   colnames(datos)<-c('Red', 'Green', 'Slice')
@@ -229,13 +206,10 @@ wtResults<-MapResults(PA14wt, names3)
 mutResults<-MapResults(PA14mut, names3)
 Pa01Results<-MapResults(PA01wt, names2)
 Pa01mutResults<-MapResults(PA01mut, names1)
-
 ResultsData<-rbind(wtResults,mutResults,Pa01Results,Pa01mutResults)
-
 #Now make it tidy and do some stats:
 cleanResults<-ResultsData %>% group_by(TimePoint,Sample,Strain,Condition,Species) %>% summarise(Totals = sum (Value))%>% mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))#this adds up all the data on each slice and then gets the log of that total
 cleanResultsStats<-cleanResults %>% group_by(TimePoint,Strain,Condition,Species) %>% summarise(MeanTotals = mean(Totals), SDTotals = sd(Totals), MeanLogTotals = mean(LogTotals), SDLogTotals = sd(LogTotals)) %>% mutate(MeanLogTotalsRevd = 10^MeanLogTotals, SDLogTotalsRevd =10^(SDLogTotals)) #stats between reps
-
 #This is just to check the difference between the mean log and the log of the mean, which are quite different as it turns out...
 clean1ResultsStats<-cleanResultsStats %>% mutate(CheckLog = MeanLogTotals^10) %>% mutate(CheckLog2 = log10(MeanTotals)) %>% mutate(DiffLog = abs(MeanLogTotals-CheckLog2)) %>% mutate(DiffTotals = abs(MeanTotals - CheckLog))
 ```
@@ -243,8 +217,6 @@ clean1ResultsStats<-cleanResultsStats %>% mutate(CheckLog = MeanLogTotals^10) %>
 Data from S. aureus. 
 Remember that all mono cultures of Sa are essentially the same: Same strain, same inoculum, same condition. So this is the only condition where you have several replicates.
 ```{r biomass Sa}
-
-
 GraphGrowthCurves<-function (dataRaw, dataStats, bug){
   if(bug=="Sa"){dataRaw<-dataRaw %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");
   dataStats<-dataStats %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");nombre<-"S. aureus"}
@@ -279,28 +251,23 @@ GraphGrowthCurvesExpClean<-function (dataRaw, dataStats, bug){
     labs(title =paste(bug, "growth in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control")+
     facet_grid(.~Strain)
 }
-
 GraphGrowthCurvesExp(cleanResults,cleanResultsStats, "Sa")
 GraphGrowthCurvesExp(cleanResults,cleanResultsStats, "Pa")
 GraphGrowthCurvesExpClean(cleanResults,cleanResultsStats, "Sa")
 GraphGrowthCurvesExpClean(cleanResults,cleanResultsStats, "Pa")
-
 #First Isolate Sa Mono
 cleanResultsSa <- cleanResults %>% filter(Species == "Sa")
 cleanResultsSaMono<- cleanResultsSa %>% filter(Condition == "Sa Mono")
-
 ggplot()+
   geom_point(data=cleanResultsSa %>% filter(Condition == "Sa Mono"), aes(x=TimePoint, y=Totals),  color = "Black", size=2)+
   geom_smooth(data=cleanResultsSaMono, aes(x=TimePoint, y=Totals), size=3, color = "red")+
   scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
-
 ggplot()+
   geom_point(data=cleanResultsSa, aes(x=TimePoint, y=Totals, shape = NULL,  color =Strain), size=3)+
   scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   facet_grid(~Condition)+
   labs(title =expression(paste(italic("S. aureus"), " growth in mono or coculture in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
-
 #Now Sa Co-culture
 cleanResultsSaCo<- cleanResultsSa %>% filter(!Condition == "Sa Mono")
 ggplot()+
@@ -312,11 +279,9 @@ ggplot()+
 ```
 
 ```{r growth rates Sa}
-
 #first try to fit it to a model fro exponential growth:
 exponential.model <- lm(log(cleanResultsSaMono$Totals)~ cleanResultsSaMono$TimePoint)
 summary(exponential.model)
-
 #not very good... So I found the package "growthrates", so I'll try that
 #https://cran.r-project.org/web/packages/growthrates/vignettes/Introduction.html
 splitted.data <- multisplit(cleanResultsSaMono, c("Strain", "Sample"))
@@ -326,21 +291,16 @@ summary(fit)#summary of values
 coef(fit) #exponential growth parameters
 rsquared(fit)  # coefficient of determination (of log-transformed data)
 deviance(fit)  # residual sum of squares of log-transformed data
-
 par(mfrow = c(1, 2))
 plot(fit, log = "y")
 plot(fit)
-
 many_fits <- all_easylinear(Totals ~ TimePoint | Strain + Sample, data = cleanResultsSaMono, h = 4)#the h is the number of points considered for fit
-
 par(mfrow = c(3, 3))#establish the grid
 plot(many_fits,log = "y")#plot many things
 testdf<-data.frame(as.list(rsquared))#convert to data frame
-
 #this is the mean rsquared for the growth curves. Not super useful, but it is the syntax for more interesting stuff
 pa14GrowthRates<- testdf %>% select(contains("PA14")) %>% gather() %>% summarise(mean = mean(value))
 #Now with all the conditions and find different growth rates
-
 ```
 
 Data from P. aeruginosa
@@ -354,7 +314,6 @@ ggplot()+
   #geom_smooth(data=cleanResultsPaMono, method = "gam",  aes(x=TimePoint, y=Totals, color = Strain), linetype = "dashed", size=3)+
   scale_y_log10(limits= c(1e4,1e7), name=expression(paste('CFUs per mL' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))
   #facet_grid(~Strain)
-
 #model to Fit into an exponential 
 ```
 
@@ -367,18 +326,13 @@ ggplot()+
   #geom_smooth(data=cleanResultsPaMono, method = "gam",  aes(x=TimePoint, y=Totals, color = Strain), linetype = "dashed", size=3)+
   scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass in voxels' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   labs(title =expression(paste(italic("S. aureus"), " and ", italic("P. aeruginosa"), "growth in mono in SCFM2" )),  x = "Time (hours)")
-
 ggplot()+
   scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
-
-
-
 ```
 ## Now we are showing the 
 
 ```{r aggregates}
-
 MapAggregates<- function(listSamples, reps){
   mappedData<-map2(listSamples, reps, GetAggregates)
   boundData<-bind_rows(mappedData)
@@ -386,7 +340,6 @@ MapAggregates<- function(listSamples, reps){
   boundData<-boundData %>% mutate(Strain = blah)#needs to be two lines, it doesnt work if you do it directly
   return(boundData)
   }
-
 GetAggregates<-function(sample, samplename){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/aggregateSizes')
   fileList<-list.files(path = folder, full.names = TRUE)
@@ -401,7 +354,6 @@ GetAggregates<-function(sample, samplename){
   growthDf<-growthDf %>% mutate(Sample = samplename)
 return(growthDf)
 }
-
 ReadAggregateFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab
   datos <-read.csv(file, header = TRUE)
   colnames(datos)<-c('Size', 'Species')
@@ -409,7 +361,6 @@ ReadAggregateFile<-function(file, position, timepoint){#This function outputs to
   datos<-datos %>% mutate(TimePoint = timepoint)
   return(datos)
 }
-
 wtAggregates<-MapAggregates(PA14wt, names3)
 mutAggregates<-MapAggregates(PA14mut, names3)
 Pa01Results<-MapAggregates(PA01wt, names2)
@@ -432,12 +383,10 @@ GraphSlices<-function (data, bug, facete){
     labs(title =paste0(nombre, " biomass value per slice in SCFM2" ),  x = "Distance from bottom (z-slice)")+
     facete
 }
-
 ggsave("Sa z-slice condition-timepoint1.png", plot = GraphSlices(ResultsData, "Sa"), path = figuresPath)
 ggsave("Sa z-slice timepoint.png", plot = GraphSlices(ResultsData, "Sa", "BLAH"), path = figuresPath)
 ggsave("Pa z-slice condition-timepoint.png", plot = GraphSlices(ResultsData, "Pa"), path = figuresPath)
 ggsave("Pa z-slice timepoint.png", plot = GraphSlices(ResultsData, "Pa", "BLAH"), path = figuresPath)
-
 #This graph shows how the distribution of biomass changes over time per experiment.
 GraphSlicesTime<-function(datos, bug, strain){
   if(bug=="Sa"){datos<-datos %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");nombre<-"S. aureus"}
@@ -448,7 +397,6 @@ GraphSlicesTime<-function(datos, bug, strain){
     labs(title =paste(bug, "biomass value per slice in SCFM2 using",strain  ),  x = "Distance from bottom (z-slice)")+
     facet_grid(Sample~Condition)
 }
-
 ggsave("Sa z-slice PA14wt grid.png", plot = GraphSlicesTime(ResultsData, "Sa", "PA14wt"), path = figuresPath)
 ggsave("Sa z-slice PA14mut grid.png", plot = GraphSlicesTime(ResultsData, "Sa", "PA14mut"), path = figuresPath)
 ggsave("Pa z-slice PA14wt grid.png", plot = GraphSlicesTime(ResultsData, "Pa", "PA14wt"), path = figuresPath)
@@ -469,7 +417,6 @@ GetResults<-function(sample, samplename){
   growthDf<-growthDf %>% mutate(Sample = samplename)
 return(growthDf)
 }
-
 #This is also useful so that I know how the pipeline works
 #first run MapResults which gets you all the data:
 wtResults1<-MapResults(PA14wt, names3)
@@ -480,45 +427,37 @@ ResultsData1<-rbind(wtResults1,mutResults1)
 cleanResults1<-ResultsData1 %>% group_by(TimePoint,Sample,Strain,Condition,Species) %>% summarise(Totals = sum (Value))%>% mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))#this adds up all the data on each slice and then gets the log of that total
 cleanResultsStats1<-cleanResults1 %>% group_by(TimePoint,Strain,Condition,Species) %>% summarise(MeanTotals = mean(Totals), SDTotals = sd(Totals), MeanLogTotals = mean(LogTotals), SDLogTotals = sd(LogTotals)) %>% mutate(MeanLogTotalsRevd = 10^MeanLogTotals, SDLogTotalsRevd =10^(SDLogTotals))
 #Graph
-
 #This Graphs 
 GraphGrowthCurves(cleanResults%>%filter(Strain%in%c("PA14wt","PA14mut")),cleanResultsStats%>%filter(Strain%in%c("PA14wt","PA14mut")),"Sa")
 GraphGrowthCurves(cleanResults1,cleanResultsStats1, "Sa")
-
 #This graphs the mean of the log totals along with the log of the totals themselves
 GraphGrowthCurvesExp(cleanResults%>%filter(Strain%in%c("PA14wt","PA14mut")),cleanResultsStats%>%filter(Strain%in%c("PA14wt","PA14mut")), "Sa")
 GraphGrowthCurvesExp(cleanResults1,cleanResultsStats1, "Sa")
-
 #This graphs only the mean of the log values, no other points
 GraphGrowthCurvesExpClean(cleanResults%>%filter(Strain%in%c("PA14wt","PA14mut")),cleanResultsStats%>%filter(Strain%in%c("PA14wt","PA14mut")), "Sa")
 GraphGrowthCurvesExpClean(cleanResults1,cleanResultsStats1, "Sa")
-
 #Isolate Sa
 cleanResultsSa1 <- cleanResults1 %>% filter(Species == "Sa")
 cleanResultsSaMono1<- cleanResultsSa1 %>% filter(Condition == "Sa Mono")
-
 ggplot()+
   geom_point(data=cleanResultsSa1 %>% filter(Condition == "Sa Mono"), aes(x=TimePoint, y=Totals),  color = "Black", size=2)+
   geom_smooth(data=cleanResultsSaMono1, aes(x=TimePoint, y=Totals), size=3, color = "red")+
   scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
-
 GraphGrowthCurvesExp(cleanResults1,cleanResultsStats1, "Pa")
 GraphGrowthCurvesExpClean(cleanResults1,cleanResultsStats1, "Pa")
-
 GraphGrowthCurvesExpCleanCoCulture<-function (dataStats){
   ggplot()+
     geom_line(data=dataStats %>% filter(!Condition %in% c("Pa Mono", "Sa Mono")), aes(x=TimePoint, y=MeanLogTotals,  color = Strain, linetype = Species), size=2)+
     labs(title =paste("Growth in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control")+
     facet_grid(.~Condition)
 }
-
 GraphGrowthCurvesExpCleanCoCulture(cleanResultsStats)
 ```
 #This 
 ```{r new threshold images aggregates data}
 GetAggregates<-function(sample, samplename){
-  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data1/',sample,'/aggregateSizes1')
+  folder<- paste0('/media/whiteley/Samsung USB/Juan Data/',sample,'/aggregateSizes1')
   fileList<-list.files(path = folder, full.names = TRUE)
   growthDf<-data.frame()
   for (position in 0:5){
@@ -532,18 +471,6 @@ GetAggregates<-function(sample, samplename){
 return(growthDf)
 }
 
-wtAggregates1<-MapAggregates(PA14wt, names3)
-mutAggregates1<-MapAggregates(PA14mut, names3)
-allAggregates<-bind_rows(wtAggregates1,mutAggregates1)
-allAggregates<-allAggregates %>% filter(!Size<0.5)
-
-ggplot()+
-  geom_point(data = allAggregates)
-  scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-  labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
-```
-
-```{r new threshold images aggregates graph}
 TotalHistogram<-function(df){
   biomass<-df$Size
   totalbiomass<-sum(biomass)
@@ -558,21 +485,63 @@ TotalHistogram<-function(df){
   histogram%>%mutate(NormBiomassBin=BiomassBin/totalbiomass)->histogram
   return(histogram)
 }
+wtAggregates1<-MapAggregates(PA14wt, names3)
+mutAggregates1<-MapAggregates(PA14mut, names3)
+allAggregates<-bind_rows(wtAggregates1,mutAggregates1)
+allAggregates1<-allAggregates %>% filter(!Size<0.5) %>% filter(!(Position==1 & Species=="Sa")) %>% filter(!(Position==0 & Species=="Pa"))%>% filter(!Species =="")
+allAggregates1$Strain<-as.factor(allAggregates1$Strain)
+allAggregates1$Sample<-as.factor(allAggregates1$Sample)
+allAggregates1$TimePoint<-as.factor(allAggregates1$TimePoint)
+allAggregates1$Position<-as.factor(allAggregates1$Position)
+allAggregates1<-allAggregates1 %>% mutate(Condition = recode(Position, "0" = "Sa Mono", "1" = "Pa Mono", "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10" ))
 
-testSplit<-split(allAggregates, c("Sa","Pa"))
-allAggregates1<-allAggregates %>% filter(Species %in% c("Pa", "Sa"))
-allAggregates$Strain<-as.factor(allData$Strain)
-allAggregates$Sample<-as.factor(allData$Sample)
-allAggregates$TimePoint<-as.factor(allData$TimePoint)
-allAggregates$Position<-as.factor(allData$Position)
+#get some stats on aggregates
+allDataSummary<-allAggregates1 %>% group_by(Species, Condition, TimePoint, Sample, Strain) %>% summarise(Aggs = n(), biomass = sum(Size), meanAggSize = mean(Size), sDAggSize = sd(Size), maxSize = max(Size), minSize = min(Size))
+#group them to get histograms for each experiment
+allData<-allAggregates1 %>% group_by(Species, Condition, TimePoint, Sample, Strain)#first do the correct grouping
+yas<- group_split(allData)#create list of dataframes
+allDataHistograms<-map(yas, TotalHistogram)#apply histogram function to all items in the list
 
-allData<-allAggregates %>% group_by(Species, Position, TimePoint, Sample, Strain)
-yas<- group_split(allData)
+
+```
+
+```{r new threshold images aggregates graph}
+ggplot()+
+  geom_jitter(data = allDataSummary, aes(x = TimePoint, y= Aggs, color = Species, shape = Strain), width = 0, height = 0)+
+  geom_smooth(data = allDataSummary, aes(x = TimePoint, y= Aggs, color = Species, linetype = Strain, group = interaction(Species, Strain)))+
+  facet_wrap(.~Condition)+
+  ggtitle('Number of aggregates per experiment')+
+  labs(x = "Time (hours)",y = "Number of Aggregates") 
+
+#this is a decent outline of the aggregates but I need to still subset it
+ggplot()+
+  geom_point(data = allDataSummary, aes(x = TimePoint, y= meanAggSize, color = Species,shape = "Mean"))+
+  geom_point(data = allDataSummary, aes(x = TimePoint, y= maxSize, color = Species, shape = "Max"))+
+  geom_point(data = allDataSummary, aes(x = TimePoint, y= biomass, color = Species, shape = "Total"))+  
+  geom_smooth(data = allDataSummary, aes(x = TimePoint, y= meanAggSize, color = Species, linetype = Strain, group = interaction(Species)))+
+  facet_wrap(Strain~Condition)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  ggtitle('Aggregates summary: Mean, largest and total biomass')+
+  labs(x = "Time (hours)",y = "Number of Aggregates")+
+  scale_shape_manual(name="Metric",values=c(Mean=1, Max=2, Total=17)) 
+  
+#this led me to introduce another metric: ratio of largest aggregate to total biomass
+allDataSummary<-allDataSummary %>% mutate(RatioMaxTotal = maxSize/biomass )
 
 ggplot()+
-  geom_point(data = allAggregates, aes(x = TimePoint, y= Position, color = Sample, shape = Species))+
-  facet_wrap(.~Strain)
-
+  geom_jitter(data = allDataSummary, aes(x = TimePoint, y= RatioMaxTotal, color = Species, shape = Strain), width = 0, height = 0)+
+  geom_smooth(data = allDataSummary, aes(x = TimePoint, y= RatioMaxTotal, color = Species, linetype = Strain, group = interaction(Species, Strain)))+
+  facet_wrap(.~Condition)+
+  ggtitle('Ratio of largest aggregate to total biomass')+
+  labs(x = "Time (hours)",y = "Proportion of largest aggregate to total biomass")
+#this seems to have a lot of noise, how does that compare to actual biomass?
+ggplot()+
+  geom_jitter(data = allDataSummary, aes(x = TimePoint, y= biomass, color = Species, shape = Strain), width = 0, height = 0)+
+  geom_smooth(data = allDataSummary, aes(x = TimePoint, y= biomass, color = Species, linetype = Strain, group = interaction(Species, Strain)))+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(.~Condition)+
+  ggtitle("Total biomass")+
+  labs(x = "Time (hours)",y = "Total biomass")
 
 
 plotHist3DBiomassCounts<-function(df1, title){
@@ -605,5 +574,4 @@ plotHist3DBiomassNormBinBiomass<-function(df1, title){
     ggtitle(paste0("Raw biomass Distribution (bin size = 10 um) ",title))
     #facet_wrap(~TimePoint, nrow=4)
   }
-
 ```
