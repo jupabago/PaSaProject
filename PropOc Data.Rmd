@@ -1,0 +1,82 @@
+---
+title: "Proportional Occupancy"
+author: "Juan P Barraza"
+date: "9/11/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(pixmap)
+library(rtiff)
+library(reshape2)
+library(gplots)
+library(dplyr)
+library(gdata)
+library(ggplot2)
+library(cowplot)
+library(magrittr)
+library(tidyr)
+library(purrr)
+library(moderndive)
+```
+
+```{r read data, include=FALSE}
+#names of samples
+wtsamplesList<-c("PA14wt_1","PA14wt_2","PA14wt_3")
+mutsamplesList<-c("PA14mut_1","PA14mut_2","PA14mut_3")
+
+ReadPropOcFile<-function(sample, strain){#This function outputs total number of pixels in the csv file from matlab
+  file<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/PropOc Data1/',sample,'.csv')
+  datos <-read.csv(file, header = TRUE)
+  datos<-datos %>% mutate(TimePoint = timePoint+1)
+  datos<-datos %>% mutate(Sample = sample)
+  datos$Sample<-as.factor(datos$Sample)
+  datos<-datos %>% mutate(Strain = strain)
+  datos$Strain<-as.factor(datos$Strain)
+  datos<-datos %>% mutate(Relation = recode(source, "finalGG" = "Pa->Pa","finalRG" = "Sa->Pa","finalRR" = "Sa->Sa","finalGR" = "Pa->Sa"))%>%mutate(Condition = recode(position, "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10"))
+  datos$Relation<-as.factor(datos$Relation)
+  datos$Relation<-factor(datos$Relation, levels = c("Pa->Pa", "Sa->Sa", "Sa->Pa","Pa->Sa"))
+  datos$Condition<-as.factor(datos$Condition)
+  datos$Condition<-factor(datos$Condition, levels = c("Pa:Sa 1:1", "Pa:Sa 1:10", "Pa:Sa 1:100","Pa:Sa 10:1"))
+  return(datos)
+}
+#combine the data from all samples
+wtpropOcData.list<-map2(wtsamplesList, "wt", ReadPropOcFile)
+mutpropOcData.list<-map2(mutsamplesList, "mut", ReadPropOcFile)
+propOcData<-bind_rows(wtpropOcData.list,mutpropOcData.list)
+```
+
+```{r graphing all data}
+#Start building some graphs:
+graphAllData<-function(relation){
+ggplot()+
+  geom_point(data = propOcData%>% filter(Relation == relation), aes (x = distance, y = normPropOccup, color = Strain))+
+  facet_grid(Condition~TimePoint)+
+  ylab("Proportional occupancy")+
+  ggtitle(paste0("Proportional occupancy ",relation, " (All data)"))
+}
+graphAllData("Pa->Pa")
+graphAllData("Sa->Sa")
+graphAllData("Sa->Pa")
+graphAllData("Pa->Sa")
+```
+
+```{r graph stats}
+#do stats:
+propOcData.stats<-propOcData %>% group_by(distance, Relation, Condition, Strain, TimePoint) %>% summarize(MeanPropOc = mean(normPropOccup), SDPropOc = sd(normPropOccup)) 
+#graph them:
+graphStatsData<-function(relation){
+ggplot()+
+  geom_line(data = propOcData.stats%>% filter(Relation == relation), aes (x = distance, y = MeanPropOc, color = Strain))+
+  geom_errorbar(data = propOcData.stats%>% filter(Relation == relation), aes (x = distance, ymin = MeanPropOc-SDPropOc,ymax = MeanPropOc+SDPropOc, color = Strain))+
+  facet_grid(Condition~TimePoint)+
+  ylab("Proportional Occupancy")+
+  ggtitle(paste0("Proportional occupancy ",relation, " (Stats)"))
+}
+graphStatsData("Pa->Pa")
+graphStatsData("Sa->Sa")
+graphStatsData("Sa->Pa")
+graphStatsData("Pa->Sa")
+```
