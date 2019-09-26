@@ -70,7 +70,7 @@ propOcData.stats<-propOcData %>% group_by(distance, Relation, Condition, Strain,
 graphStatsData<-function(relation){
 ggplot()+
   geom_line(data = propOcData.stats%>% filter(Relation == relation), aes (x = distance, y = MeanPropOc, color = Strain))+
-  geom_errorbar(data = propOcData.stats%>% filter(Relation == relation), aes (x = distance, ymin = MeanPropOc-SDPropOc,ymax = MeanPropOc+SDPropOc, color = Strain))+
+  #geom_errorbar(data = propOcData.stats%>% filter(Relation == relation), aes (x = distance, ymin = MeanPropOc-SDPropOc,ymax = MeanPropOc+SDPropOc, color = Strain))+
   facet_grid(Condition~TimePoint)+
   ylab("Proportional Occupancy")+
   ggtitle(paste0("Proportional occupancy ",relation, " (Stats)"))

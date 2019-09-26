@@ -42,23 +42,29 @@ GetGrowthCurveCondition<-function(datalist){
 GraphGrowthCurveLog<-function (rawData, statsData){
     ggplot()+
     geom_point(data=rawData, aes(x=time, y=logCFU,color = bug, shape = strain),   size=2)+
-    geom_point(data=statsData, aes(x=time, y=logCFUmean,  color = bug, shape = strain), size=2)+
+    #geom_point(data=statsData, aes(x=time, y=logCFUmean,  color = bug, shape = strain), size=2)+
     geom_line(data=statsData, aes(x=time, y=logCFUmean,  color = bug, linetype = strain), size=2)+
     #geom_errorbar(data=statsData, aes(x = time, ymin = logCFUmean-logCFUsd, ymax = logCFUmean+logCFUsd, color = bug, linetype = strain), width = 0, size = 1)+
     geom_errorbar(data=statsData, aes(x = time, ymin = logCFUmean-logCFUse, ymax = logCFUmean+logCFUse, color = bug, linetype = strain), width = 0, size = 1)+
-    labs(title =paste("Growth in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Bug")+
+    labs(title =paste("Growth in SCFM2" ),  x = "Time (hours)",shape = "Strain",linetype = "Strain", color = "Bug")+
     facet_grid(.~condition)
 }
 ##this one graphs the normal values
 GraphGrowthCurve<-function (rawData, statsData){
-    ggplot()+
+    ggplot()+ 
     geom_point(data=rawData, aes(x=time, y=CFU,color = bug, shape = strain),   size=2)+
-    geom_point(data=statsData, aes(x=time, y=CFUmean,  color = bug, shape = strain), size=2)+
     geom_line(data=statsData, aes(x=time, y=CFUmean,  color = bug, linetype = strain), size=2)+
     geom_errorbar(data=statsData, aes(x = time, ymin = CFUmean-CFUsd, ymax = CFUmean+CFUsd, color = bug, linetype = strain), width = 0, size = 1)+
-    labs(title =paste("Growth in SCFM2" ),  x = "Time (hours)",shape = "strain", color = "Bug")+
+    labs(title =paste("Growth in SCFM2" ),  x = "Time (hours)",shape = "strain", color = "Species")+
     scale_y_log10(name=expression(paste('CFUs per mL' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
     facet_grid(.~condition)
+}
+
+GetNumber<-function(idx){
+  if (idx<10){
+    idx = paste0(0,idx)
+  }
+  return (idx)
 }
 ```
 
@@ -131,7 +137,8 @@ allConfocalResultsStats<-allConfocalResults %>% group_by(TimePoint,Strain,Condit
 DataComparisonScope<-allConfocalResultsStats %>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,3,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
 
 ##remove conditions I didn't do in the scope and fix strain names:
-DataComparisonCFU<-PA14DataStats %>% filter (condition == "Static") %>% select(bug, strain, CFUmean, logCFUmean, condition, time)%>% as.data.frame() %>% mutate(Strain = recode(DataComparisonCFU$strain, wt = "PA14wt", mut = "PA14mut"))
+DataComparisonCFU<-PA14DataStats %>% filter (condition == "Static") %>% select(bug, strain, CFUmean, logCFUmean, condition, time)%>% as.data.frame() 
+DataComparisonCFU<-DataComparisonCFU%>% mutate(Strain = recode(DataComparisonCFU$strain, wt = "PA14wt", mut = "PA14mut"))
 
 #name columns so that they match with the columns in the other df
 colnames(DataComparisonCFU)<- c("Species", "strain", "CFUs", "logCFUs","Static", "time", "Strain")
@@ -143,11 +150,12 @@ comparisonDf$time<-as.numeric(as.character(comparisonDf$time))
 ##Adding more data from the TOB experiments!
 #first select relevant conditions and fix column names
 DataComparisonCFUSa<-newSCFMDataSa%>%  filter(!culture == "mono") %>% filter(antibiotic == "Control") %>% select(CFU, culture, bug, timePoint, antibiotic, logTranformed,sample, condition) %>% group_by(culture, timePoint) %>% summarise(meanCFU = mean(CFU), meanLogCFU = mean(logTranformed))  
+
 DataComparisonCFUSa<-DataComparisonCFUSa%>% as.data.frame() %>%mutate(Strain = recode(DataComparisonCFUSa$culture, wt = "PA14wt", mut = "PA14mut"))
 
 colnames(DataComparisonCFUSa)<-c("strain", "time", "CFUs", "logCFUs", "Strain")
 #then do the same for the scope data
-DataComparisonScopeSa<-allConfocalResultsStats %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4)) %>% select(Condition,TimePoint, strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
+DataComparisonScopeSa<-allConfocalResultsStats %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
 #merge them!
 comparisonSaDf <- merge(DataComparisonCFUSa,DataComparisonScopeSa,by=c("time","Strain"))
 
