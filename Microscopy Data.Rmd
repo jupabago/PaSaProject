@@ -36,8 +36,8 @@ GetNumber<-function(idx){
 }
 ```
 
-
-```{r thresholds}
+#Analysis of thresholds
+```{r thresholds functions}
 MapThreshold<- function(listSamples, reps){
   mappedData<-map2(listSamples, reps, GetThresholds)
   boundData<-bind_rows(mappedData)
@@ -70,6 +70,9 @@ ReadThresholdFile<-function(file, position ){#This function outputs total number
   datos<-datos %>% mutate(TimePoint = row_number()-1)
   return(datos)
 }
+```
+
+```{r thresholds data and figures}
 wtThresholds<-MapThreshold(PA14wt, names3)
 mutThresholds<-MapThreshold(PA14mut, names3)
 Pa01Thresholds<-MapThreshold(PA01wt, names2)
@@ -162,8 +165,8 @@ ggplot()+
   geom_smooth(data=Pa14mutMonoTrhesholdDf, aes(x=TimePoint, y=Value), size=2)+
   geom_point(data=Pa14mutMonoTrhesholdDf, aes(x=TimePoint, y=Value), size=2)
 ```
-
-```{r biomass functions}
+#Biomass with threshold by time points
+```{r biomass functions to read data}
 MapResults<- function(listSamples, reps){
   blah <-deparse(substitute(listSamples))
   mappedData<-map2(listSamples, reps, GetResults)
@@ -178,7 +181,7 @@ MapResults<- function(listSamples, reps){
   return(boundData)
   }
 GetResults<-function(sample, samplename){
-  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/results')
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Other Data/',sample,'/results')
   fileList<-list.files(path = folder, full.names = TRUE)
   growthDf<-data.frame()
   for (position in 0:5){
@@ -197,10 +200,7 @@ ReadResultsFile<-function(file, position, timepoint){
   return(datos)
 }
 ```
-#Biomass per slice.  
 
-Where is the majority of the biomass at any given time? and How dos it grow over time.
-It additionally helps identify how reproducible are the experiments
 ```{r biomass data}
 #Run the biomass functions on each set of samples and combine them at the end 
 wtResults<-MapResults(PA14wt, names3)
@@ -208,16 +208,14 @@ mutResults<-MapResults(PA14mut, names3)
 Pa01Results<-MapResults(PA01wt, names2)
 Pa01mutResults<-MapResults(PA01mut, names1)
 ResultsData<-rbind(wtResults,mutResults,Pa01Results,Pa01mutResults)
-#Now make it tidy and do some stats:
+#combine data for all slices, make it tidy and do  stats:
 cleanResults<-ResultsData %>% group_by(TimePoint,Sample,Strain,Condition,Species) %>% summarise(Totals = sum (Value))%>% mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))#this adds up all the data on each slice and then gets the log of that total
 cleanResultsStats<-cleanResults %>% group_by(TimePoint,Strain,Condition,Species) %>% summarise(MeanTotals = mean(Totals), SDTotals = sd(Totals), MeanLogTotals = mean(LogTotals), SDLogTotals = sd(LogTotals)) %>% mutate(MeanLogTotalsRevd = 10^MeanLogTotals, SDLogTotalsRevd =10^(SDLogTotals)) #stats between reps
 #This is just to check the difference between the mean log and the log of the mean, which are quite different as it turns out...
 clean1ResultsStats<-cleanResultsStats %>% mutate(CheckLog = MeanLogTotals^10) %>% mutate(CheckLog2 = log10(MeanTotals)) %>% mutate(DiffLog = abs(MeanLogTotals-CheckLog2)) %>% mutate(DiffTotals = abs(MeanTotals - CheckLog))
 ```
 
-Data from S. aureus. 
-Remember that all mono cultures of Sa are essentially the same: Same strain, same inoculum, same condition. So this is the only condition where you have several replicates.
-```{r biomass Sa}
+```{r biomass plotting functions}
 GraphGrowthCurves<-function (dataRaw, dataStats, bug){
   if(bug=="Sa"){dataRaw<-dataRaw %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");
   dataStats<-dataStats %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");nombre<-"S. aureus"}
@@ -256,6 +254,10 @@ GraphGrowthCurvesExp(cleanResults,cleanResultsStats, "Sa")
 GraphGrowthCurvesExp(cleanResults,cleanResultsStats, "Pa")
 GraphGrowthCurvesExpClean(cleanResults,cleanResultsStats, "Sa")
 GraphGrowthCurvesExpClean(cleanResults,cleanResultsStats, "Pa")
+```
+Data from S. aureus. 
+Remember that all mono cultures of Sa are essentially the same: Same strain, same inoculum, same condition. So this is the only condition where you have several replicates.
+```{r Biomass Sa}
 #First Isolate Sa Mono
 cleanResultsSa <- cleanResults %>% filter(Species == "Sa")
 cleanResultsSaMono<- cleanResultsSa %>% filter(Condition == "Sa Mono")
@@ -331,7 +333,6 @@ ggplot()+
   scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   labs(title =expression(paste(italic("S. aureus"), " growth in mono in SCFM2" )),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control") 
 ```
-## Now we are showing the 
 
 ```{r aggregates}
 MapAggregates<- function(listSamples, reps){
@@ -367,7 +368,10 @@ mutAggregates<-MapAggregates(PA14mut, names3)
 Pa01Results<-MapAggregates(PA01wt, names2)
 Pa01mutResults<-MapAggregates(PA01mut, 'rep1')
 ```
+##Biomass per slice.  
 
+Where is the majority of the biomass at any given time? and how does it grow over time.
+It additionally helps identify how reproducible are the experiments
 ```{r Biomass per slice }
 #This function uses facets to show the abundance of cells according to height over time
 GraphSlices<-function (data, bug, facete){
@@ -570,7 +574,7 @@ TotalHistogram<-function(df){
   currentHist<-hist(biomass, plot = F, breaks = breaksSequence)
   histogram<-data.frame(currentHist$counts,currentHist$mids)
   colnames(histogram)<-c("Counts", "Midpoint")
-  histogram<-histogram[!(histogram$Counts==0),]
+  histogram<-histogram[!(histogram$Counts==0),]#remove zeros
   histogram%>%mutate(BiomassBin=Counts*Midpoint)->histogram
   histogram%>%mutate(NormBiomassBin=BiomassBin/totalbiomass)->histogram
   return(histogram)
