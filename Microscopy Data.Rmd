@@ -146,6 +146,7 @@ lm(Pa14mutMonoTrhesholdDf$Value ~ Pa14mutMonoTrhesholdDf$TimePoint)
 plot(Pa14mutMonoTrhesholdDf$TimePoint, Pa14mutMonoTrhesholdDf$Value)
 abline( 0.082315, -0.001234 )
 #Non-linear model
+
 #PA14wt
 ggplot()+
   geom_smooth(data=Pa14wtMonoTrhesholdDf, method = lm, aes(x=TimePoint, y=Value), size=2)+
@@ -491,6 +492,7 @@ allAggregates1<-allAggregates1 %>% mutate(Condition = recode(Position, "0" = "Sa
 ```{r new threshold agggregates, include=FALSE}
 #get some stats on aggregates
 allDataSummary<-allAggregates1 %>% group_by(Species, Condition, TimePoint, Sample, Strain) %>% summarise(Aggs = n(), biomass = sum(Size), meanAggSize = mean(Size), sDAggSize = sd(Size), maxSize = max(Size), minSize = min(Size))
+SaSummary<-allDataSummary %>% filter(Species == "Sa" & TimePoint == 7 & Condition == "Sa Mono") %>% ungroup()%>% summarise(MeanAgg = mean(meanAggSize) )
 
 ##Figure 6
 #Summary figure for total aggregate numbers
