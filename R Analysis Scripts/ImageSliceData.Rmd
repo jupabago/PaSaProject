@@ -1,0 +1,221 @@
+---
+title: "Image Data per Slice"
+author: "Juan P Barraza"
+date: "2/25/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+GetSliceHistogramData<-function(sample){
+  file<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/singleImageData/RawImgData_',sample,'.csv')
+  datos <-read.csv(file, header = FALSE)
+  colnames(datos)<-c('ZeroFreq','ZeroProp','MaxFreq','firstZero','totalZeroes','Otsu','TopPercentile','TailBins', 'TailFreq','OptimalG','MeanIntensity','SDIntensity','Channel','Slice','TimePoint','Position','Tile')
+  datos<-datos %>% mutate(MaxProp = MaxFreq/262144,TailProp = TailFreq/262144, Sample = sample)
+  return(datos)
+}
+DataRep3<-GetSliceHistogramData('4-17-19')
+DataRep2<-GetSliceHistogramData('3-19-19')
+DataRep1<-GetSliceHistogramData('3-13-19')
+allData<-bind_rows(DataRep3,DataRep2,DataRep1)
+
+PlotDataPerSlice<-function(y.var, canal){
+  y.var <- enquo(y.var)
+  canal <- enquo(canal)
+ggplot()+
+  geom_point(data=allData %>% filter(channel==!!canal), aes(x=slice, y=!!y.var, shape = factor(tile), color = factor(Sample)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+}
+PlotDataPerSliceLog<-function(y.var, canal){
+  y.var <- enquo(y.var)
+  canal <- enquo(canal)
+ggplot()+
+  geom_point(data=allData %>% filter(channel==!!canal), aes(x=slice, y=!!y.var, shape = factor(tile), color = factor(Sample)), size=2)+
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+}
+
+PlotDataPerTimePoint<-function(y.var, canal){
+  y.var <- enquo(y.var)
+  canal <- enquo(canal)
+ggplot()+
+  geom_point(data=allData %>% filter(channel==!!canal), aes(x=timePoint, y=!!y.var, shape = factor(tile), color = factor(Sample)), size=2)+
+  facet_wrap(~slice, nrow = 9)+
+  theme_minimal_grid(12)
+}
+PlotDataPerTimePointLog<-function(y.var, canal){
+  y.var <- enquo(y.var)
+  canal <- enquo(canal)
+ggplot()+
+  geom_point(data=allData %>% filter(channel==!!canal), aes(x=timePoint, y=!!y.var, shape = factor(tile), color = factor(Sample)), size=2)+
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(~slice, nrow = 9)+
+  theme_minimal_grid(12)
+}
+```
+
+```{r zeroInt}
+PlotDataPerSlice(zeroInt, 1)
+PlotDataPerTimePoint(zeroInt, 1)
+#this shows that there are a lot of zeros in all of the timepoints and they cahnge more dramatically with slice than with timepoints
+#the real data is only up to slice 34, afterwards its all zeros for Staph, and there is a somewhat decent variation with the tiles
+```
+```{r zeroPercent}
+PlotDataPerSlice(zeroPercent, 1)
+PlotDataPerTimePoint(zeroPercent, 1)
+```
+```{r maxint}
+PlotDataPerSliceLog(maxInt, 1)
+PlotDataPerTimePoint(maxint, 1)
+
+#oddly enough, it seems like Staph has indeed a good amount of high intensity voxels compared to pseudomonas, all in the early slices
+#you can see more clearly here that up until slice 12 you get some super high intensity voxels
+#pseudomonas does have some max intensity voxels but not as many as Staph, and also up until slice 10 ish
+
+```
+
+```{r firstZero}
+#This is a measure of what is the maximum intensity on the images
+PlotDataPerSliceLog(maxInt, 1)
+PlotDataPerTimePoint(maxint, 1)
+
+#both Pseudomonas and Staph decay at relatively the same amount over the z-slice
+
+```
+
+```{r TailBins}
+#This is how many no-zero values have higher intensity than the first zero frequency intensity
+PlotDataPerSlice(orphanZeros, 1)
+PlotDataPerTimePoint(orphanZeros, 1)
+
+#both Pseudomonas and Staph decay at relatively the same amount over the z-slice
+```
+
+```{r totalZeroes}
+#This is how many bins are empty from the histograms.
+ggplot()+
+  geom_point(data=testGetSliceHistogramData, aes(x=slice, y=totalZeroes, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+#Again, it seems like both Pseudomonas and Staph have relatively the same amount over the z-slice, with staph approaching it a bit faster
+ggplot()+
+  geom_point(data=testGetSliceHistogramData, aes(x=timePoint, y=totalZeroes, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~slice, nrow = 9)+
+  theme_minimal_grid(12)
+
+ggplot()+
+  geom_point(data=testGetSliceHistogramData %>% filter(channel == 1), aes(x=slice, y=totalZeroes, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+
+ggplot()+
+  geom_point(data=testGetSliceHistogramData %>% filter(channel == 2), aes(x=slice, y=totalZeroes, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+```
+```{r level}
+#This is how many bins are empty from the histograms.
+ggplot()+
+  geom_point(data=testGetSliceHistogramData, aes(x=slice, y=level, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+#Very uniform for pseudomonas but quite variable for staph, specially since there are a lot of inter-tile variation
+ggplot()+
+  geom_point(data=testGetSliceHistogramData, aes(x=timePoint, y=level, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~slice, nrow = 9)+
+  theme_minimal_grid(12)
+
+ggplot()+
+  geom_point(data=testGetSliceHistogramData %>% filter(channel == 1), aes(x=slice, y=level, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+
+ggplot()+
+  geom_point(data=testGetSliceHistogramData %>% filter(channel == 2), aes(x=slice, y=level, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+```
+
+```{r calculatedGlow}
+PlotDataPerSliceLog(calculatedGhigh, 1)
+PlotDataPerTimePointLog(calculatedGhigh, 1)
+#stretchlim(I) computes the lower and upper limits that can be used for contrast stretching grayscale or RGB image I. The limits are returned in lowhigh. By default, the limits specify the bottom 1% and the top 1% of all pixel values.
+#this is the top 1% of all pixels 
+#Now THIS is interesting... there is essentially a bimodal relationship at the later slices.
+#Nope... What causes this is the fact that more than 99 percent of the pixels are at an intensity of zero
+
+```
+
+```{r meanIntensity}
+#This is how many bins are empty from the histograms.
+ggplot()+
+  geom_point(data=testGetSliceHistogramData, aes(x=slice, y=meanIntensity, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+
+ggplot()+
+  geom_point(data=testGetSliceHistogramData, aes(x=timePoint, y=meanIntensity, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~slice, nrow = 9)+
+  theme_minimal_grid(12)
+
+ggplot()+
+  geom_point(data=testGetSliceHistogramData %>% filter(channel == 1), aes(x=slice, y=meanIntensity, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+#mean intensity only reaches a maximum of 2 at the highest points. and it decays with slice number
+ggplot()+
+  geom_point(data=testGetSliceHistogramData %>% filter(channel == 1), aes(x=timePoint, y=meanIntensity, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~slice, nrow = 9)+
+  theme_minimal_grid(12)
+
+ggplot()+
+  geom_point(data=testGetSliceHistogramData %>% filter(channel == 2), aes(x=slice, y=meanIntensity, shape = factor(tile), color = factor(channel)), size=2)+
+  facet_wrap(~timePoint, nrow = 3)+
+  theme_minimal_grid(12)
+#mean intensity reaches a maximum of around 20 at the highest points. and it decays with slice number
+```
+#Histograms
+```{r read histogram data}
+GetSliceHistograms<-function(sample){
+  file<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/singleImageData/Histograms_',sample,'.csv')
+  datos <-read.csv(file, header = FALSE)
+  colnames(datos)<-c('Frequency','Intensity', 'Channel', 'Slice', 'TimePoint', 'Position', 'Tile')
+  datos<-datos %>% mutate(Sample = sample)
+  return(datos)
+}
+HistogramsRep3<-GetSliceHistograms('4-17-19')
+HistogramsRep2<-GetSliceHistograms('3-19-19')
+HistogramsRep1<-GetSliceHistograms('3-13-19')
+allHistograms<-bind_rows(HistogramsRep3,HistogramsRep2,HistogramsRep1)
+```
+
+```{r death curves}
+#this code is copied from the original code from the Denmark Project
+getSliceDeathCurve<-function(df){
+  df<-df[!(df$Frequency==0),]#remove zeros
+  totalAbundance = sum(df$Frequency)
+  currentAbundance = 0
+  for (i in 1 : nrow(df)){
+    addedAbundance<-totalAbundance-currentAbundance
+    df[i,9]<-addedAbundance
+    currentAbundance = currentAbundance+df[i,1]
+  }
+  colnames(df)<-c('Frequency','Intensity', 'Channel', 'Slice', 'TimePoint', 'Position', 'Tile', 'Sample','Decay')
+  df<-df%>% mutate (normDecay = 100*(Decay - min(Decay)) / (max(Decay) - min(Decay)))
+  return(df)
+  }
+processImageData<-function(df){
+  allData<-df %>% group_by(Channel, Slice, TimePoint, Position, Tile,Sample)
+  splitData<- group_split(allData)
+  mappedData<-map(splitData, getSliceDeathCurve)
+  boundData<-bind_rows(mappedData)
+  colnames(boundData)<-c('Frequency','Intensity', 'Channel', 'Slice', 'TimePoint', 'Position', 'Tile', 'Sample','Decay', 'normDecay')
+  return(boundData)
+}
+deathCurveData<-processImageData(allHistograms)
+write.csv(deathCurveData, file ='/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/singleImageData/deathCurves.csv')
+deathCurveData <-read.csv('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/singleImageData/deathCurves.csv', header = FALSE)
+```
