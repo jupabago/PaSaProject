@@ -53,7 +53,7 @@ MapThreshold<- function(listSamples, reps){
 }
  
 GetThresholds<-function(sample, samplename){
-  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/threshold')
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Other Data/',sample,'/threshold')
   fileList<-list.files(path = folder, full.names = TRUE)
   growthDf<-data.frame()
   for (position in 0:5){
@@ -101,6 +101,14 @@ ggplot()+
   geom_errorbar(data=SathresholdData,aes(x = TimePoint, ymin = MeanThreshold-SDThreshold, ymax = MeanThreshold+SDThreshold, color = Strain), width=2, size = .1)+
   geom_hline(data = Saaverage, aes(yintercept = MeanThreshold, color = Strain), size = 3)+
   facet_grid(.~Condition)
+#For now, lets focus on the PA14 strains:
+ggplot()+
+  geom_point(data=thresholdData %>% filter(Species=="Sa") %>%filter(Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=Value, shape = Sample, color = Strain), size=2)+
+  geom_line(data=SathresholdData%>%filter(Strain %in% c("PA14wt", "PA14mut")),aes(x = TimePoint, y = MeanThreshold, color =Strain), size = 1)+
+  geom_errorbar(data=SathresholdData%>%filter(Strain %in% c("PA14wt", "PA14mut")),aes(x = TimePoint, ymin = MeanThreshold-SDThreshold, ymax = MeanThreshold+SDThreshold, color = Strain), width=2, size = .1)+
+  geom_hline(data = Saaverage%>%filter(Strain %in% c("PA14wt", "PA14mut")), aes(yintercept = MeanThreshold, color = Strain), size = 3)+
+  facet_grid(.~Condition)+
+    theme_cowplot(12)
 ```
 
 ```{r threshold weighted growth curves}
@@ -118,10 +126,17 @@ ggplot()+
     geom_point(data=thresholdResultsDf%>% filter(Species == "Sa"), aes(x=TimePoint, y=correctedWeightedLogValue,  shape = Sample), size=2)+
     geom_point(data=cleanResults%>% filter(Species == "Sa"), aes(x=TimePoint, y=LogTotals,  shape = Sample), size=2, color = "red")+
     facet_grid(Strain~Condition)
+```
+
+```{r regression models for thresholds}
 #Linear regressions
-#First get a df with only Sa Mono Red Channel
+
+#First get a df with only condition wanted in Red Channel
 SaMonoTrhesholdDf<-thresholdData%>% filter(Condition == "Sa Mono") %>% filter(Species == "Sa")
+PaSa1.1TrhesholdDf<-thresholdData%>% filter(Condition == "Pa:Sa 1:1") %>% filter(Species == "Sa") %>% filter(Strain %in% c("PA14wt","PA14mut"))
+
 #Linear regression for Thresholds
+#Mono
 lm(SaMonoTrhesholdDf$Value ~ SaMonoTrhesholdDf$TimePoint) 
 plot(SaMonoTrhesholdDf$TimePoint, SaMonoTrhesholdDf$Value)
 abline( 0.18154, 0.00819 )
@@ -137,7 +152,12 @@ ggplot()+
 ggplot()+
   geom_smooth(data=SaMonoTrhesholdDf, method = lm, aes(x=TimePoint, y=Value), size=2)+
   geom_point(data=SaMonoTrhesholdDf, aes(x=TimePoint, y=Value), size=2)
-    
+
+#Co 1:1
+lm(PaSa1.1TrhesholdDf$Value ~ PaSa1.1TrhesholdDf$TimePoint) 
+plot(PaSa1.1TrhesholdDf$TimePoint, PaSa1.1TrhesholdDf$Value)
+abline( 0.1909, -0.00386 )
+
 #Now do the same for Pa
 Pa14wtMonoTrhesholdDf<-thresholdData%>% filter(Condition == "Pa Mono") %>% filter(Species == "Pa") %>% filter(Strain == "PA14wt")
 Pa14mutMonoTrhesholdDf<-thresholdData%>% filter(Condition == "Pa Mono") %>% filter(Species == "Pa") %>% filter(Strain == "PA14mut")
@@ -208,8 +228,8 @@ mutResults<-MapResults(PA14mut, names3)
 Pa01Results<-MapResults(PA01wt, names2)
 Pa01mutResults<-MapResults(PA01mut, names1)
 ResultsData<-rbind(wtResults,mutResults,Pa01Results,Pa01mutResults)
-#combine data for all slices, make it tidy and do  stats:
-cleanResults<-ResultsData %>% group_by(TimePoint,Sample,Strain,Condition,Species) %>% summarise(Totals = sum (Value))%>% mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))#this adds up all the data on each slice and then gets the log of that total
+#Make it tidy and dostats (Add up all the data on each slice and then gets the log of that total)
+cleanResults<-ResultsData %>% group_by(TimePoint,Sample,Strain,Condition,Species) %>% summarise(Totals = sum (Value))%>% mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))
 cleanResultsStats<-cleanResults %>% group_by(TimePoint,Strain,Condition,Species) %>% summarise(MeanTotals = mean(Totals), SDTotals = sd(Totals), MeanLogTotals = mean(LogTotals), SDLogTotals = sd(LogTotals)) %>% mutate(MeanLogTotalsRevd = 10^MeanLogTotals, SDLogTotalsRevd =10^(SDLogTotals)) #stats between reps
 #This is just to check the difference between the mean log and the log of the mean, which are quite different as it turns out...
 clean1ResultsStats<-cleanResultsStats %>% mutate(CheckLog = MeanLogTotals^10) %>% mutate(CheckLog2 = log10(MeanTotals)) %>% mutate(DiffLog = abs(MeanLogTotals-CheckLog2)) %>% mutate(DiffTotals = abs(MeanTotals - CheckLog))
@@ -227,7 +247,8 @@ GraphGrowthCurves<-function (dataRaw, dataStats, bug){
     geom_line(data=dataStats, aes(x=TimePoint, y=MeanTotals),  color = "Red", size=2)+
     scale_y_log10(limits= c(1e4,1e7), name=expression(paste('Biomass from voxel counts' )), breaks = c(10^(seq(5,10,.5))), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
     labs(title =paste(bug, "growth in mono in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control")+
-    facet_grid(Strain~Condition)
+    facet_grid(Strain~Condition)+
+    theme_cowplot(12)
 }
 GraphGrowthCurvesExp<-function (dataRaw,dataStats, bug){
   if(bug=="Sa"){dataRaw<-dataRaw %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");
@@ -239,7 +260,8 @@ GraphGrowthCurvesExp<-function (dataRaw,dataStats, bug){
     geom_point(data=dataStats, aes(x=TimePoint, y=MeanLogTotals),  color = colore, size=2)+
     geom_line(data=dataStats, aes(x=TimePoint, y=MeanLogTotals),  color = colore, size=2)+
     labs(title =paste(bug, "growth in SCFM2" ),  x = "Time (hours)",shape = "Culture condition", color = "Antiobiotic/Control")+
-    facet_grid(Strain~Condition)
+    facet_grid(Strain~Condition)+
+    theme_cowplot(12)
 }
 GraphGrowthCurvesExpClean<-function (dataRaw, dataStats, bug){
   if(bug=="Sa"){dataStats<-dataStats %>% filter(Species == "Sa")%>% filter(!Condition == "Pa Mono");colore<-"Red"}
@@ -411,7 +433,8 @@ ggsave("Pa z-slice PA14mut grid.png", plot = GraphSlicesTime(ResultsData, "Pa", 
 ```{r new threshold images}
 #To get the data from the new results folder I have to rewrite this function:
 GetResults<-function(sample, samplename){
-  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data1/',sample,'/results')#the path needs to be "Other Data1"
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Other Data1/',sample,'/results')
+  #the path just needs to be changed to"Other Data1"
   fileList<-list.files(path = folder, full.names = TRUE)
   growthDf<-data.frame()
   for (position in 0:5){
@@ -460,9 +483,73 @@ GraphGrowthCurvesExpCleanCoCulture<-function (dataStats){
     facet_grid(.~Condition)
 }
 GraphGrowthCurvesExpCleanCoCulture(cleanResultsStats1)
+```
+
+```{r threshold Sa by time}
+#This function keeps getting changed but using the same name... so heads up on that
+GetResults<-function(sample, samplename){
+  #folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Threshold by time/',sample,'/resultsByTime')
+  folder<- paste0('/Volumes/Seagate Backup Plus Drive/Good images/',sample,'/resultsByTime6')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  #for (position in 2:3){
+  #  currentPosition<-fileList[grep(paste0("p",position,"."),fileList)]
+  currentPosition<-fileList[grep(paste0("p2."),fileList)]
+    for (timepoint in 0:17){
+      currentTimePoint<-currentPosition[grep(paste0("t",GetNumber(timepoint),"_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, 2, timepoint))
+      #growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, position, timepoint))
+      }
+    #}
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
+
+ProcessResults <-function(){
+  wt<-MapResults(PA14wt, names3)
+  mut<-MapResults(PA14mut, names3)
+  #combine them:
+  results<-rbind(wt,mut)
+  #Add up all the data on each slice and then gets the log of that total
+  resultsSum<-results %>% group_by(TimePoint,Sample,Strain,Condition,Species)%>% 
+    summarise(Totals = sum (Value))%>%
+    mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))
+  #get stats between replicates
+  resultsStats<-resultsSum %>% group_by(TimePoint,Strain,Condition,Species) %>% 
+    summarise(MeanTotals = mean(Totals), SDTotals = sd(Totals), MeanLogTotals = mean(LogTotals), SDLogTotals = sd(LogTotals)) %>% 
+    mutate(MeanLogTotalsRevd = 10^MeanLogTotals, SDLogTotalsRevd =10^(SDLogTotals))
+  results <- list(resultsSum,resultsStats)
+  return(results)
+} 
+#this is super bad, but the way I am generating the seccessive "linearx" below is by manually changing the folder in the function "GetResults" above, running it and then storing the results using "ProcessResults" below... I know, it sucks, but it works
+linear6<-ProcessResults()
+linearThresholdGrowthCurves<-combine(cleanResults,cleanResults1,cleanResultsByTime,linear1[[1]],linear2[[1]],linear4[[1]],linear5[[1]],linear6[[1]])
+linearThresholdGrowthCurvesStats<-combine(linear1[[2]],linear2[[2]],linear4[[2]],linear5[[2]],linear6[[2]])
+
+#these are the first few sets of data:
+ggplot()+
+  geom_line(data=cleanResults%>% filter(Species == "Sa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color = "Black", size=2)+
+  geom_line(data=cleanResults1%>% filter(Species == "Sa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color = "Red", size=2)+
+  geom_line(data=cleanResultsByTime%>% filter(Species == "Sa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color = "Blue", size=2)+
+  geom_line(data=linear1[[1]]%>% filter(Species == "Sa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color = "Green", size=2)+
+  facet_grid(Strain~Sample)+
+  theme_cowplot(12)
+
+ggplot()+
+  geom_line(data=linearThresholdGrowthCurves%>% filter(Species == "Sa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals,color = source), size=2)+
+  facet_grid(Strain~Sample)+
+  theme_cowplot(12)
+
+ggplot()+
+  geom_line(data=linearThresholdGrowthCurvesStats%>% filter(Species == "Sa") %>% 
+              filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=MeanLogTotals,color = source), size=2)+
+  facet_grid(Condition~Strain)+
+  theme_cowplot(12)
+
 
 
 ```
+
 #Functions for histograms
 ```{r new threshold images aggregates functions and data collection}
 GetAggregates<-function(sample, samplename){
