@@ -1,0 +1,99 @@
+---
+title: "PropOcData2"
+author: "Juan P Barraza"
+date: "3/5/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(pixmap)
+library(rtiff)
+library(reshape2)
+library(gplots)
+library(gdata)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+library(tidyr)
+library(purrr)
+library(plotrix)
+library(ggsignif)
+library(rdist)
+
+source('/Users/jupabago/Documents/Whiteley/PROJECTS/Rpackage/PropOc Package/R/PropOcFunctions2.0.R') #using the new 3D script with capped spheres.
+```
+
+```{r Get Prop Oc Data}
+GetNewPropOcOralData<-function(sample){
+  imagesFolder<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Oral Penn/Images/WT&Mut&GtfB/"
+  folder<-paste0(imagesFolder, sample, "/combined Bin",sample) 
+  fileList<-list.files(path = folder, full.names = TRUE)
+  fileList2<-fileList[grep("tif",fileList)]
+  propOc<- NormRawPipeline(SlicesTo3D(fileList2,"red"),SlicesTo3D(fileList2,"green"),xydimSearch = 54, zdimSearch = 9,sampleSize = 1000,xyRealDim = 0.156,zRealDim = 0.93, pipeBinSize = 1)
+  return(propOc)
+}
+
+samples = c("WT1","WT2","WT3","Mut1","Mut2","Mut3","GtfB1","GtfB2","GtfB3")
+
+propOcDataList<-map(samples, GetNewPropOcOralData)#get the data
+propOcDataNames<-map2(propOcDataList, samples, ~.x %>% mutate(Sample = .y))#add sample column
+propOcData<-bind_rows(propOcDataNames)#it's aliveeeee
+write.csv(propOcData,"/Users/jupabago/545455Documents/Whiteley/PROJECTS/Oral Penn/Images/WT&Mut&GtfB/ PropOc Data AllData.csv")
+```
+
+```{r PropOc DATA}
+
+GetPropOcData<-function(sample, timepoints, positions){
+  folder<- paste0('/Volumes/Seagate Backup Plus Drive/Good images/',sample,'/images1')
+  growthDf<-data.frame()#data frame to add all timepoints and positions
+  fileList<-list.files(path = folder, full.names = TRUE)
+  print(folder)
+  for (position in 0:positions){
+    currentPosition<-fileList[grep(paste0("p",position,"_"),fileList)]
+    print(paste0('analyzing position ', position))
+    for (timepoint in 0:timepoints){
+      currentTimePoint<-currentPosition[grep(paste0("t",GetSlice(timepoint),"_"),currentPosition)]
+      dataTimePoint<-NormRawPipeline(SlicesTo3D(currentTimePoint,"red"),SlicesTo3D(currentTimePoint,"green"), 
+                                               #xydimSearch=114,zdimSearch = 70, sampleSize=1,xyRealDim=0.264,
+                                     xydimSearch=11,zdimSearch = 7, sampleSize=100,xyRealDim=0.264,
+                                               #zRealDim = 0.44, pipeBinSize = 1)
+                                     zRealDim = 0.44, pipeBinSize = 1)
+      dataTimePoint$TimePoint <- timepoint
+      dataTimePoint$Position <- position
+      growthDf<-rbind(growthDf,dataTimePoint)
+      }
+    }
+  return(growthDf)
+  }
+
+GetSlice<-function(idx){
+if (idx<10){num = paste0(0,idx)}
+  else
+    {num = idx}
+  return(num)}
+
+test1<-GetPropOcData("3-13-19", 0, 0)
+test2<-GetPropOcData("3-13-19", 1, 1)
+
+
+propOcPA14wt_1.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/3-13-19/images1", timepoints = 10, positions = 5)
+propOcPA14wt_2.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/3-19-19/images1", timepoints = 10, positions = 5)
+propOcPA14wt_3.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/4-17-19/images1", timepoints = 10, positions = 5)
+
+propOcPA14mut_1.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/4-24-19/images1", timepoints = 10, positions = 5)
+propOcPA14mut_2.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/4-25-19/images1", timepoints = 10, positions = 5)
+propOcPA14mut_3.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/5-8-19/images1", timepoints = 10, positions = 5)
+
+write.csv(propOcPA14wt_1.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14wt_1.csv", row.names = FALSE)
+write.csv(propOcPA14wt_2.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14wt_2.csv", row.names = FALSE)
+write.csv(propOcPA14wt_3.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14wt_3.csv", row.names = FALSE)
+
+write.csv(propOcPA14mut_1.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14mut_1.csv", row.names = FALSE)
+write.csv(propOcPA14mut_2.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14mut_2.csv", row.names = FALSE)
+write.csv(propOcPA14mut_3.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14mut_3.csv", row.names = FALSE)
+
+
+```
