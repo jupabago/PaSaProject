@@ -116,7 +116,7 @@ GraphGrowthCurveLog1(PA14Data,PA14DataStats)
 GraphGrowthCurve(PA14Data,PA14DataStats)
 ```
 
-```{r Confocal vs CFUs data wrangling}
+```{r Confocal data wrangling}
 #first pull confocal data:
 ##functions to read data
 MapResults<- function(listSamples, reps){
@@ -169,7 +169,10 @@ allConfocalResultsStats<-allConfocalResults %>% group_by(TimePoint,Strain,Condit
 
 ##remove all the conditions I didn't do in the plate counts and fix time points:
 DataComparisonScope<-allConfocalResultsStats %>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,3,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
+```
 
+
+```{r CFU data wrangling}
 ##remove stirred condition I didn't do in the scope and fix strain names:
 DataComparisonCFU<-PA14DataStats %>% filter (condition == "Static") %>% select(bug, strain, CFUmean, logCFUmean, condition, time)%>% as.data.frame() 
 DataComparisonCFU<-DataComparisonCFU%>% mutate(Strain = recode(DataComparisonCFU$strain, wt = "PA14wt", mut = "PA14mut"))
@@ -182,12 +185,14 @@ comparisonDf <- merge(DataComparisonCFU,DataComparisonScope,by=c("Species","Stra
 comparisonDf$time<-as.numeric(as.character(comparisonDf$time))
 
 ##Adding more data from the TOB experiments!
+
 #first select relevant conditions and fix column names
 DataComparisonCFUSa<-newSCFMDataSa%>%  filter(!culture == "mono") %>% filter(antibiotic == "Control") %>% select(CFU, culture, bug, timePoint, antibiotic, logTranformed,sample, condition) %>% group_by(culture, timePoint) %>% summarise(meanCFU = mean(CFU), meanLogCFU = mean(logTranformed))  
 
 DataComparisonCFUSa<-DataComparisonCFUSa%>% as.data.frame() %>%mutate(Strain = recode(DataComparisonCFUSa$culture, wt = "PA14wt", mut = "PA14mut"))
 
 colnames(DataComparisonCFUSa)<-c("strain", "time", "CFUs", "logCFUs", "Strain")
+
 #then do the same for the scope data
 DataComparisonScopeSa<-allConfocalResultsStats %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
 #merge them!
