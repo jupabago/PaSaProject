@@ -21,7 +21,8 @@ library(tidyr)
 library(plotrix)
 library(purrr)
 library(moderndive)
-
+```
+```{r data gathering functions}
 #Data gathering functions:
 GetGrowthCurveReplicate<- function (sample){
   bugCounts<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/GrowthCurves/", sample, ".csv"),header = TRUE)
@@ -37,7 +38,11 @@ GetGrowthCurveCondition<-function(datalist){
   colnames(boundData)[8] <- "condition"
   return(boundData)
 }
+```
+
+```{r graphing functions}
 #Graphing functions
+
 ##this one graphs the log values
 GraphGrowthCurveLog<-function (rawData, statsData){
     staticPlot<-ggplot()+
@@ -173,9 +178,11 @@ DataComparisonScope<-allConfocalResultsStats %>% filter (Strain %in% c("PA14wt",
 
 
 ```{r CFU data wrangling}
+
+#GROWTH CURVES PLATE COUNTS DATA
 ##remove stirred condition I didn't do in the scope and fix strain names:
 DataComparisonCFU<-PA14DataStats %>% filter (condition == "Static") %>% select(bug, strain, CFUmean, logCFUmean, condition, time)%>% as.data.frame() 
-DataComparisonCFU<-DataComparisonCFU%>% mutate(Strain = recode(DataComparisonCFU$strain, wt = "PA14wt", mut = "PA14mut"))
+DataComparisonCFU<-DataComparisonCFU%>% mutate(Strain = recode(DataComparisonCFU$strain, wt = "PA14wt", mut = "PA14mut"))#add new column with proper name
 
 #name columns so that they match with the columns in the other df
 colnames(DataComparisonCFU)<- c("Species", "strain", "CFUs", "logCFUs","Static", "time", "Strain")
@@ -184,23 +191,51 @@ colnames(DataComparisonCFU)<- c("Species", "strain", "CFUs", "logCFUs","Static",
 comparisonDf <- merge(DataComparisonCFU,DataComparisonScope,by=c("Species","Strain", "time"))
 comparisonDf$time<-as.numeric(as.character(comparisonDf$time))
 
-##Adding more data from the TOB experiments!
+#FOR SA I can also use the Tob data, but first isolate from the other plate counts data:
+DataComparisonCFUSaGrowthCurves<-DataComparisonCFU %>% filter(Species == "Sa") %>% select(Species, strain, CFUs, logCFUs, time, Strain)
 
+#TOB PLATE COUNTS DATA
+#this is dataframe is in the "SaPa TOB grwoth curves.RMD" file
 #first select relevant conditions and fix column names
-DataComparisonCFUSa<-newSCFMDataSa%>%  filter(!culture == "mono") %>% filter(antibiotic == "Control") %>% select(CFU, culture, bug, timePoint, antibiotic, logTranformed,sample, condition) %>% group_by(culture, timePoint) %>% summarise(meanCFU = mean(CFU), meanLogCFU = mean(logTranformed))  
+DataComparisonCFUSa<-newSCFMDataSa%>%  filter(!culture == "mono") %>% filter(antibiotic == "Control") %>% select(CFU, culture, bug, timePoint, antibiotic, logTranformed,sample, condition) %>% group_by(bug, culture, timePoint) %>% summarise(meanCFU = mean(CFU), meanLogCFU = mean(logTranformed)) %>% ungroup()  
 
-DataComparisonCFUSa<-DataComparisonCFUSa%>% as.data.frame() %>%mutate(Strain = recode(DataComparisonCFUSa$culture, wt = "PA14wt", mut = "PA14mut"))
+DataComparisonCFUSa<-DataComparisonCFUSa%>% mutate(Strain = recode(DataComparisonCFUSa$culture, wt = "PA14wt", mut = "PA14mut"))
+colnames(DataComparisonCFUSa)<-c("Species", "strain", "time", "CFUs", "logCFUs", "Strain")
 
-colnames(DataComparisonCFUSa)<-c("strain", "time", "CFUs", "logCFUs", "Strain")
+DataCFUAllSa<-bind_rows(DataComparisonCFUSa,DataComparisonCFUSaGrowthCurves)#combine growth curves and TOB
+DataCFUAllSa<-DataCFUAllSa%>% group_by(Strain,time) %>% summarise(CFU = mean(CFUs), LogCFU = mean(logCFUs)) %>% ungroup()  
 
 #then do the same for the scope data
-DataComparisonScopeSa<-allConfocalResultsStats %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
+DataComparisonScopeSa<-allConfocalResultsStats %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0)) #The timePoint thing is because I start imaging after one hour and I don't have a time zero on scope
 #merge them!
-comparisonSaDf <- merge(DataComparisonCFUSa,DataComparisonScopeSa,by=c("time","Strain"))
+comparisonSaDf <- merge(DataCFUAllSa,DataComparisonScopeSa,by=c("time","Strain"))
+comparisonSaDfTOB <- merge(DataComparisonCFUSa,DataComparisonScopeSa,by=c("time","Strain"))
+
+```
+```{r microscopy data from different thresholds}
+linear1Stats<-linear1[[2]] %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0))
+
+linear2Stats<-linear2[[2]] %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0))
+
+linear4Stats<-linear4[[2]] %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0))
+
+linear5Stats<-linear5[[2]] %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0))
+
+linear6Stats<-linear6[[2]] %>% filter(Species == "Sa")%>% filter (Strain %in% c("PA14wt","PA14mut")) %>% filter(Condition == "Pa:Sa 1:1") %>%  filter(TimePoint %in% c(0,2,3,4,7,11,15)) %>% select(Condition,TimePoint, Strain, Species, MeanTotals, MeanLogTotals) %>% mutate(time = ifelse(TimePoint>0, TimePoint+1, 0))
+
+
+#merging with the whole growth curve data, not only TOB
+comparisonSaDflinear1 <- merge(DataCFUAllSa,linear1Stats,by=c("time","Strain"))
+comparisonSaDflinear2 <- merge(DataCFUAllSa,linear2Stats,by=c("time","Strain"))
+comparisonSaDflinear4 <- merge(DataCFUAllSa,linear4Stats,by=c("time","Strain"))
+comparisonSaDflinear5 <- merge(DataCFUAllSa,linear5Stats,by=c("time","Strain"))
+comparisonSaDflinear6 <- merge(DataCFUAllSa,linear6Stats,by=c("time","Strain"))
+
 
 ```
 
-```{r graph CFU vs Confocal}
+
+```{r graph CFU vs Confocal Pa}
 #Graph both Pa and Sa
 ##Original data as input:
 ggplot()+
@@ -231,8 +266,13 @@ get_regression_summaries(Pa14LinearModel1, print = TRUE)
     annotate("text", x = 7.5, y = 6, label = expression(paste("y=1.007x-2.883  ", R^2, "= 0.9")), color = "red", size = 8)+
     labs(title =expression(paste(italic("P. aeruginosa"), " CFU vs Confocal Biomass")), x = "Log CFUs",y = "Biomass from Scope")
 
-#Now we go to Sa
+```
 
+```{r graph CFU vs Confocal Sa}
+  
+  
+#Now we go to Sa
+#this is using only Growth cruves data
 SaLinearModel <- lm(MeanLogTotals ~logCFUs, data = comparisonDf %>% filter (Species == "Sa")%>% filter(!time == 0))
 coefficients(SaLinearModel)
 get_regression_summaries(SaLinearModel, print = TRUE)
@@ -244,17 +284,63 @@ ggplot()+
   annotate("text", x = 7.9, y = 4.5, label = expression(paste("y=-2.44x+25.73  ", R^2, "= 0.619")), color = "red", size = 8)+
   labs(title =expression(paste(italic("S. aureus"), " CFU vs Confocal Biomass")), x = "Log CFUs",y = "Biomass from CLSM")+
   theme_cowplot(12)
+#adding TOB data only
+SaLinearModelTOB <- lm(MeanLogTotals ~logCFUs, data = comparisonSaDfTOB%>% filter(!time == 0))
+coefficients(SaLinearModelTOB)
+get_regression_summaries(SaLinearModelTOB, print = TRUE)
+ggplot()+
+  geom_point(data=comparisonSaDf, aes(x=LogCFU,y=MeanLogTotals,  color = time, shape = Strain),size=4)+
+  geom_abline(intercept =20.243855, slope = -1.810558, color = "red", size = 1, linetype = "dashed" )+
+  scale_color_gradient(low="blue", high="red")+
+  annotate("text", x = 7.9, y = 5.2, label = expression(paste("y=-1.810+20.243855 ", R^2, "= 0.631")), color = "red", size = 8)+
+  labs(title =expression(paste(italic("S. aureus"), " CFU vs Confocal Biomass")), x = "Log CFUs",y = "Biomass from Scope")
 
-#Adding the early time points of Staph:
-SaLinearModel2 <- lm(MeanLogTotals ~logCFUs, data = comparisonSaDf%>% filter(!time == 0))
+#combining TOB and growth curves data
+SaLinearModel2 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDf%>% filter(!time == 0))
 coefficients(SaLinearModel2)
 get_regression_summaries(SaLinearModel2, print = TRUE)
 ggplot()+
-  geom_point(data=comparisonSaDf %>% filter(Species == "Sa"), aes(x=logCFUs,y=MeanLogTotals,  color = time, shape = Strain),size=4)+
-  geom_abline(intercept =-2.693, slope = 0.928, color = "red", size = 1, linetype = "dashed" )+
+  geom_point(data=comparisonSaDf, aes(x=LogCFU,y=MeanLogTotals,  color = time, shape = Strain),size=4)+
+  geom_abline(intercept =20.243855, slope = -1.810558, color = "red", size = 1, linetype = "dashed" )+
   scale_color_gradient(low="blue", high="red")+
-  annotate("text", x = 7.9, y = 5.2, label = expression(paste("y=0.928x-2.693 ", R^2, "= 0.59")), color = "red", size = 8)+
+  annotate("text", x = 7.9, y = 5.2, label = expression(paste("y=-1.810+20.243855 ", R^2, "= 0.631")), color = "red", size = 8)+
   labs(title =expression(paste(italic("S. aureus"), " CFU vs Confocal Biomass")), x = "Log CFUs",y = "Biomass from Scope")
+
+SaLinearModel3 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDf%>% filter(!time %in% c(0,16)))
+coefficients(SaLinearModel3)
+get_regression_summaries(SaLinearModel3, print = TRUE)
+
+SaLinearModel4 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDf%>% filter(!time %in% c(0,12,16)))
+coefficients(SaLinearModel4)
+get_regression_summaries(SaLinearModel4, print = TRUE)
+
+SaLinearModel5 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDf%>% filter(!time %in% c(0,8,12,16)))
+coefficients(SaLinearModel5)
+get_regression_summaries(SaLinearModel5, print = TRUE)
+ggplot()+
+  geom_point(data=comparisonSaDf, aes(x=LogCFU,y=MeanLogTotals,  color = time, shape = Strain),size=4)+
+  geom_abline(intercept =-.982, slope = .7210531, color = "red", size = 1, linetype = "dashed" )+
+  scale_color_gradient(low="blue", high="red")+
+  annotate("text", x = 7.9, y = 5.2, label = expression(paste("y=-1.810+20.243855 ", R^2, "= 0.631")), color = "red", size = 8)+
+  labs(title =expression(paste(italic("S. aureus"), " CFU vs Confocal Biomass")), x = "Log CFUs",y = "Biomass from Scope")
+
+#Testing the images with different thresholds
+
+SaLinearModelLinear1 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDflinear1%>% filter(!time %in% c(0,12,16)))
+coefficients(SaLinearModelLinear1)
+
+SaLinearModelLinear2 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDflinear2%>% filter(!time %in% c(0,12,16)))
+coefficients(SaLinearModelLinear2)
+
+SaLinearModelLinear4 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDflinear4%>% filter(!time %in% c(0,12,16)))
+coefficients(SaLinearModelLinear4)
+
+SaLinearModelLinear5 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDflinear5%>% filter(!time %in% c(0,8,12,16)))
+coefficients(SaLinearModelLinear5)
+
+SaLinearModelLinear6 <- lm(MeanLogTotals ~LogCFU, data = comparisonSaDflinear6%>% filter(!time %in% c(0,8,12,16)))
+coefficients(SaLinearModelLinear6)
+
 
 ```
 
