@@ -37,33 +37,32 @@ extra = GetImageData(path, '3-28-19', '62x_SaLac-PA14wt-PA14pqsL-SaPa14wt-SaPa14
 SaThreshold = ones(18,1)*0.2143;
 Pa14wtThreshold = ones(18,1)*0.081486;
 Pa14mutThreshold = ones(18,1)*0.077379;
-pa14wt_1 = GetImageData2(path, '3-13-19', '62x_Salac_Pa14wt_SaPa14wt=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_3-13-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);
-pa14wt_2 = GetImageData2(path, '3-19-19', '62x_Salac_Pa14wt_SaPa14wt=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_3-19-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);                                           
-pa14wt_3 = GetImageData2(path, '4-17-19', '62x_Salac_Pa14wt_SaPa14wt1-11-10100-110-1_co_SCFM2_tile2x2_4-17-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);
+GetImageData2(path, '3-13-19', '62x_Salac_Pa14wt_SaPa14wt=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_3-13-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);
+GetImageData2(path, '3-19-19', '62x_Salac_Pa14wt_SaPa14wt=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_3-19-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);                                           
+GetImageData2(path, '4-17-19', '62x_Salac_Pa14wt_SaPa14wt1-11-10100-110-1_co_SCFM2_tile2x2_4-17-19', slices, timepoints, positions, SaThreshold,Pa14wtThreshold);
                                            
-pa14mut_1 = GetImageData2(path, '4-24-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_4-24-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
-pa14mut_2 = GetImageData2(path, '4-25-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_4-25-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
-pa14mut_3 = GetImageData2(path, '5-8-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_5-8-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
+GetImageData2(path, '4-24-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_4-24-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
+GetImageData2(path, '4-25-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_4-25-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
+GetImageData2(path, '5-8-19', '62x_Salac_Pa14pqsLclean_SaPa14pqsLclean=1-1,1-10,100-1,10-1_co_SCFM2_tile2x2_5-8-19', slices, timepoints, positions, SaThreshold,Pa14mutThreshold);
 
 
-function image = GetImageData2(path, date, name, slices, timepoints, positions, thR, thG)
+function GetImageData2(path, date, name, slices, timepoints, positions, thR, thG)
 tic    
     for position = 0:positions
         %[thR,thG] = CollectThresholds(path, date, name, slices, timepoints, position);
         ThresholdImage(path, date, name, slices, timepoints, position,thR,thG);
         toc
     end
-    image = 1;
 end
 
-function image = GetImageData(path, date, name, slices, timepoints, positions)
+
+function GetImageData(path, date, name, slices, timepoints, positions)
 tic    
     for position = 0:positions
         [thR,thG] = CollectThresholds(path, date, name, slices, timepoints, position);
         ThresholdImage(path, date, name, slices, timepoints, position,thR,thG);
         toc
     end
-    image = 1;
 end
 
 
@@ -100,15 +99,15 @@ function [ThresholdRed,ThresholdGreen] = CollectThresholds(path, date, name, sli
     csvwrite(fileName,thresholdArray)
 end
 
-function thresholdedImages = ThresholdImage(path, date, name, slices, timepoints, position, redThreshold,greenThreshold)
-imagesfilepath = strcat(path, date,'/images1');%declare name of directory to put images in
+function ThresholdImage(path, date, name, slices, timepoints, position, redThreshold,greenThreshold)
+imagesfilepath = strcat(path, date,'/imagesSubtractRed');%declare name of directory to put images in
 [~,~] = mkdir(imagesfilepath);%create directory if it hasn't been created. double wiggly thing is to prevent it from throwing warning
-resultsfilePath = strcat(path, date,'/results1');
+resultsfilePath = strcat(path, date,'/resultsSubtractRed');
 [~,~] = mkdir(resultsfilePath);
 
 for timepoint = 0:timepoints
-    totalSegments=0;%this is here for the overlapping aggregates chunk
-    results = zeros(1,5);%this is here for the overlapping aggregates chunk
+    %totalSegments=0;%this is here for the overlapping aggregates chunk
+    %results = zeros(1,5);%this is here for the overlapping aggregates chunk
     singleColorResults = zeros(slices,3);%this is here for the simple version of the code without overlapping aggregate data
     for slice = 0:slices
         filename = strcat(path, date,'/', name, '/', name, '_z', GetSlice(slice), '_t', GetSlice(timepoint),'_p', num2str(position));            
@@ -125,8 +124,11 @@ for timepoint = 0:timepoints
         %clean up image using maximum object size
         ImNeR = (bwareaopen(ImRiB,10));%Global algorithm
         ImNeG = (bwareaopen(ImGiB,10));
+        
+        newImG = imsubtract(ImG, ImR);
+            
         %combine channels
-        rgbImG = cat(3,ImNeR,ImNeG,ImB);%Global algorithm
+        rgbImG = cat(3,ImNeR,newImG,ImB);%Global algorithm
         
         imageName = strcat(imagesfilepath,'/t',GetSlice(timepoint),'_p',num2str(position),'_s',GetSlice(slice),'.tif');%create image name to store
         imwrite(rgbImG,imageName);%save image
@@ -168,7 +170,6 @@ for timepoint = 0:timepoints
     end
     resultsfilename = strcat(resultsfilePath,'/t',GetSlice(timepoint),'_p',num2str(position),'.csv');
     csvwrite(resultsfilename,singleColorResults)
-    
     %this part is also only for the aggregate overlap code
     %{
     resultsfilename = strcat(resultsfilePath,'/t',GetSlice(timepoint),'_p',num2str(position),'.csv');
@@ -176,7 +177,6 @@ for timepoint = 0:timepoints
     %}
     
 end
-       thresholdedImages = 1;
 end
 
 function slice = GetSlice(idx)
