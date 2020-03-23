@@ -23,31 +23,14 @@ library(plotrix)
 library(ggsignif)
 library(rdist)
 
-source('/Users/jupabago/Documents/Whiteley/PROJECTS/Rpackage/PropOc Package/R/PropOcFunctions2.0.R') #using the new 3D script with capped spheres.
-```
-
-```{r Get Prop Oc Data}
-GetNewPropOcOralData<-function(sample){
-  imagesFolder<-"/Users/jupabago/Documents/Whiteley/PROJECTS/Oral Penn/Images/WT&Mut&GtfB/"
-  folder<-paste0(imagesFolder, sample, "/combined Bin",sample) 
-  fileList<-list.files(path = folder, full.names = TRUE)
-  fileList2<-fileList[grep("tif",fileList)]
-  propOc<- NormRawPipeline(SlicesTo3D(fileList2,"red"),SlicesTo3D(fileList2,"green"),xydimSearch = 54, zdimSearch = 9,sampleSize = 1000,xyRealDim = 0.156,zRealDim = 0.93, pipeBinSize = 1)
-  return(propOc)
-}
-
-samples = c("WT1","WT2","WT3","Mut1","Mut2","Mut3","GtfB1","GtfB2","GtfB3")
-
-propOcDataList<-map(samples, GetNewPropOcOralData)#get the data
-propOcDataNames<-map2(propOcDataList, samples, ~.x %>% mutate(Sample = .y))#add sample column
-propOcData<-bind_rows(propOcDataNames)#it's aliveeeee
-write.csv(propOcData,"/Users/jupabago/545455Documents/Whiteley/PROJECTS/Oral Penn/Images/WT&Mut&GtfB/ PropOc Data AllData.csv")
+source('/Users/jupabago/Documents/Whiteley/PROJECTS/Rpackage/PropOc Package/R/PropOcFunctions2.0.R') 
+#using the new 3D script with capped spheres.
 ```
 
 ```{r PropOc DATA}
 
 GetPropOcData<-function(sample, timepoints, positions){
-  folder<- paste0('/Volumes/Seagate Backup Plus Drive/Good images/',sample,'/images1')
+  folder<- paste0('/Volumes/Seagate Backup Plus Drive/Good images/',sample,'/imagesSubtractRed')
   growthDf<-data.frame()#data frame to add all timepoints and positions
   fileList<-list.files(path = folder, full.names = TRUE)
   print(folder)
@@ -57,9 +40,7 @@ GetPropOcData<-function(sample, timepoints, positions){
     for (timepoint in 0:timepoints){
       currentTimePoint<-currentPosition[grep(paste0("t",GetSlice(timepoint),"_"),currentPosition)]
       dataTimePoint<-NormRawPipeline(SlicesTo3D(currentTimePoint,"red"),SlicesTo3D(currentTimePoint,"green"), 
-                                               #xydimSearch=114,zdimSearch = 70, sampleSize=1,xyRealDim=0.264,
-                                     xydimSearch=11,zdimSearch = 7, sampleSize=100,xyRealDim=0.264,
-                                               #zRealDim = 0.44, pipeBinSize = 1)
+                                     xydimSearch=114,zdimSearch = 70, sampleSize=1000,xyRealDim=0.264,
                                      zRealDim = 0.44, pipeBinSize = 1)
       dataTimePoint$TimePoint <- timepoint
       dataTimePoint$Position <- position
@@ -74,26 +55,64 @@ if (idx<10){num = paste0(0,idx)}
   else
     {num = idx}
   return(num)}
+```
+```{r run them}
+wt1<-GetPropOcData("3-13-19",6,2)
+wt2<-GetPropOcData("3-19-19",6,2)
+wt3<-GetPropOcData("4-17-19",6,2)
+mut1<-GetPropOcData("4-24-19",6,2)
+mut2<-GetPropOcData("4-25-19",6,2)
+mut3<-GetPropOcData("5-8-19",6,2)
 
-test1<-GetPropOcData("3-13-19", 0, 0)
-test2<-GetPropOcData("3-13-19", 1, 1)
 
+```
 
-propOcPA14wt_1.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/3-13-19/images1", timepoints = 10, positions = 5)
-propOcPA14wt_2.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/3-19-19/images1", timepoints = 10, positions = 5)
-propOcPA14wt_3.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/4-17-19/images1", timepoints = 10, positions = 5)
+```{r Read data files}
+GetGrowthCurveReplicate<- function (sample){
+  bugCounts<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/GrowthCurves/", sample, ".csv"),header = TRUE)
+  bugCounts<- na.omit(bugCounts)
+  bugCounts<-bugCounts %>% mutate(logCFU = log10(CFU))
+  bugCounts$sample<-sample
+  return(bugCounts)
+}
 
-propOcPA14mut_1.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/4-24-19/images1", timepoints = 10, positions = 5)
-propOcPA14mut_2.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/4-25-19/images1", timepoints = 10, positions = 5)
-propOcPA14mut_3.1<-GetImageFiles("/media/whiteley/Seagate Backup Plus Drive/Good images/5-8-19/images1", timepoints = 10, positions = 5)
+Get3DPropOcData<-function(strain, biologicalRep){
+  propOcData1<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/3D PropOc Data/", strain,biologicalRep,"-1000-",1,".csv"),header = T)
+  propOcData1<-propOcData1 %>% mutate(Strain = strain,BioRep = biologicalRep, RunRep = 1)
+  propOcData2<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/3D PropOc Data/", strain,biologicalRep,"-1000-",2,".csv"),header = T)
+  propOcData2<-propOcData2 %>% mutate(Strain = strain,BioRep = biologicalRep, RunRep = 2)
+  propOcData3<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/3D PropOc Data/", strain,biologicalRep,"-1000-",3,".csv"),header = T)
+  propOcData3<-propOcData3 %>% mutate(Strain = strain,BioRep = biologicalRep, RunRep = 3)
+  allData<-bind_rows(propOcData1,propOcData2,propOcData3)
+  allData<-allData %>% mutate(Relation = recode(source, "finalGG" = "Pa->Pa","finalRG" = "Sa->Pa","finalRR" = "Sa->Sa","finalGR" = "Pa->Sa"))%>%mutate(Condition = recode(Position, "2" = "Pa:Sa 1:1"))%>%mutate(Interaction = recode(source, "finalGG" = "Self","finalRG" = "Other","finalRR" = "Self","finalGR" = "Other"))
+  allData<-allData %>% filter(TimePoint<6 & Distance<30)
+  }
+wt1<-Get3DPropOcData("wt", 1)
+wt1<-wt1 %>% filter(!TimePoint==1 | !RunRep==2)
+wt2<-Get3DPropOcData("wt", 2)
+wt3<-Get3DPropOcData("wt", 3)
+mut1<-Get3DPropOcData("mut", 1)
+mut2<-Get3DPropOcData("mut", 2)
+mut2<-mut2 %>% filter(!TimePoint==3 | !RunRep==2)
+mut3<-Get3DPropOcData("mut", 3)
+mut3<-mut3 %>% filter(!TimePoint==1 | !RunRep==2)
 
-write.csv(propOcPA14wt_1.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14wt_1.csv", row.names = FALSE)
-write.csv(propOcPA14wt_2.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14wt_2.csv", row.names = FALSE)
-write.csv(propOcPA14wt_3.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14wt_3.csv", row.names = FALSE)
-
-write.csv(propOcPA14mut_1.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14mut_1.csv", row.names = FALSE)
-write.csv(propOcPA14mut_2.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14mut_2.csv", row.names = FALSE)
-write.csv(propOcPA14mut_3.1, file = "/media/whiteley/Seagate Backup Plus Drive/Good images/PropOc Data/results1/PA14mut_3.csv", row.names = FALSE)
-
+```
+```{r checking the replicate runs}
+PlotPropOcAll <- function(df, name) {
+ggplot()+
+  geom_point(data=df, aes(x=Distance,y=MeanPropOcc, color = Relation, shape = factor(RunRep)),size=4)+
+  facet_wrap(TimePoint~Relation, ncol = 4)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title =name)+
+  theme_cowplot()+
+  background_grid()
+}
+PlotPropOcAll(wt1,"wt1")
+PlotPropOcAll(wt2,"wt2")
+PlotPropOcAll(wt3,"wt3")
+PlotPropOcAll(mut1,"mut1 ")
+PlotPropOcAll(mut2,"mut2")
+PlotPropOcAll(mut3,"mut3")
 
 ```
