@@ -27,8 +27,7 @@ source('/Users/jupabago/Documents/Whiteley/PROJECTS/Rpackage/PropOc Package/R/Pr
 #using the new 3D script with capped spheres.
 ```
 
-```{r PropOc DATA}
-
+```{r functions to get PropOc Data}
 GetPropOcData<-function(sample, timepoints, positions){
   folder<- paste0('/Volumes/Seagate Backup Plus Drive/Good images/',sample,'/imagesSubtractRed')
   growthDf<-data.frame()#data frame to add all timepoints and positions
@@ -56,7 +55,7 @@ if (idx<10){num = paste0(0,idx)}
     {num = idx}
   return(num)}
 ```
-```{r run them}
+```{r run functions}
 wt1<-GetPropOcData("3-13-19",6,2)
 wt2<-GetPropOcData("3-19-19",6,2)
 wt3<-GetPropOcData("4-17-19",6,2)
@@ -66,53 +65,253 @@ mut3<-GetPropOcData("5-8-19",6,2)
 
 
 ```
-
 ```{r Read data files}
-GetGrowthCurveReplicate<- function (sample){
-  bugCounts<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/GrowthCurves/", sample, ".csv"),header = TRUE)
-  bugCounts<- na.omit(bugCounts)
-  bugCounts<-bugCounts %>% mutate(logCFU = log10(CFU))
-  bugCounts$sample<-sample
-  return(bugCounts)
-}
 
-Get3DPropOcData<-function(strain, biologicalRep){
-  propOcData1<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/3D PropOc Data/", strain,biologicalRep,"-1000-",1,".csv"),header = T)
+Get3DPropOcData<-function(strain, biologicalRep, experiment){
+  propOcData1<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataRedSub1/", strain,biologicalRep,"-1000-",1,".csv"),header = T)
   propOcData1<-propOcData1 %>% mutate(Strain = strain,BioRep = biologicalRep, RunRep = 1)
-  propOcData2<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/3D PropOc Data/", strain,biologicalRep,"-1000-",2,".csv"),header = T)
+  propOcData2<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataRedSub1/", strain,biologicalRep,"-1000-",2,".csv"),header = T)
   propOcData2<-propOcData2 %>% mutate(Strain = strain,BioRep = biologicalRep, RunRep = 2)
-  propOcData3<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/3D PropOc Data/", strain,biologicalRep,"-1000-",3,".csv"),header = T)
+  propOcData3<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataRedSub1/", strain,biologicalRep,"-1000-",3,".csv"),header = T)
   propOcData3<-propOcData3 %>% mutate(Strain = strain,BioRep = biologicalRep, RunRep = 3)
   allData<-bind_rows(propOcData1,propOcData2,propOcData3)
-  allData<-allData %>% mutate(Relation = recode(source, "finalGG" = "Pa->Pa","finalRG" = "Sa->Pa","finalRR" = "Sa->Sa","finalGR" = "Pa->Sa"))%>%mutate(Condition = recode(Position, "2" = "Pa:Sa 1:1"))%>%mutate(Interaction = recode(source, "finalGG" = "Self","finalRG" = "Other","finalRR" = "Self","finalGR" = "Other"))
-  allData<-allData %>% filter(TimePoint<6 & Distance<30)
+  allData<-allData %>%  mutate(CV = SDPropOcc/MeanPropOcc) %>% mutate(Experiment = experiment)
+  allData<-allData %>% 
+    mutate(Relation = recode(source, "finalGG" = "Pa->Pa","finalRG" = "Sa->Pa","finalRR" = "Sa->Sa","finalGR" = "Pa->Sa")) %>%
+    mutate(Condition = recode(Position, "2" = "Pa:Sa 1:1")) %>%
+    mutate(Interaction = recode(source, "finalGG" = "Self","finalRG" = "Other","finalRR" = "Self","finalGR" = "Other")) %>%
+    mutate(FocusSpecies = recode(source, "finalGG" = "Pa","finalRG" = "Sa","finalRR" = "Sa","finalGR" = "Pa")) %>%
+    mutate(TargetSpecies = recode(source, "finalGG" = "Pa","finalRG" = "Pa","finalRR" = "Sa","finalGR" = "Sa")) %>% 
+    mutate(Time = recode(TimePoint, "0" = "Hour 1","1" = "Hour 2","2" = "Hour 3","3" = "Hour 4","4" = "Hour 5","5" = "Hour 6"))
+  
+  allData<-allData %>% filter(TimePoint<6 & Distance<30)#last distance is always off for some reason =(
   }
-wt1<-Get3DPropOcData("wt", 1)
-wt1<-wt1 %>% filter(!TimePoint==1 | !RunRep==2)
-wt2<-Get3DPropOcData("wt", 2)
-wt3<-Get3DPropOcData("wt", 3)
-mut1<-Get3DPropOcData("mut", 1)
-mut2<-Get3DPropOcData("mut", 2)
-mut2<-mut2 %>% filter(!TimePoint==3 | !RunRep==2)
-mut3<-Get3DPropOcData("mut", 3)
-mut3<-mut3 %>% filter(!TimePoint==1 | !RunRep==2)
 
+wt1<-Get3DPropOcData("wt", 1, "wt1")
+wt2<-Get3DPropOcData("wt", 2, "wt2")
+wt3<-Get3DPropOcData("wt", 3, "wt3")
+wt3<-wt3 %>% filter(!RunRep==2|!TimePoint==1)
+
+mut1<-Get3DPropOcData("mut", 1, "mut1")
+mut2<-Get3DPropOcData("mut", 2, "mut2")
+mut3<-Get3DPropOcData("mut", 3, "mut3")
+
+combinedData<-bind_rows(wt1,wt2,wt3,mut1,mut2,mut3)
+combinedData<-combinedData %>% filter(RunRep==1)#I just saw that theyr are all the same, so no point on dragging that much data
 ```
 ```{r checking the replicate runs}
 PlotPropOcAll <- function(df, name) {
-ggplot()+
-  geom_point(data=df, aes(x=Distance,y=MeanPropOcc, color = Relation, shape = factor(RunRep)),size=4)+
-  facet_wrap(TimePoint~Relation, ncol = 4)+
-  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-  labs(title =name)+
-  theme_cowplot()+
-  background_grid()
-}
+  ggplot()+
+    geom_point(data=df, aes(x=Distance,y=MeanPropOcc, color = Relation, shape = factor(RunRep)),size=4)+
+    geom_errorbar(data=df, aes(x=Distance,ymin=MeanPropOcc-SDPropOcc,ymax=MeanPropOcc+SDPropOcc, color = Relation, linetype = factor(RunRep)),size=4)+
+    facet_wrap(TimePoint~Relation, ncol = 4)+
+    scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    labs(title =name)+
+    theme_cowplot()+
+    background_grid()
+  }
 PlotPropOcAll(wt1,"wt1")
 PlotPropOcAll(wt2,"wt2")
 PlotPropOcAll(wt3,"wt3")
 PlotPropOcAll(mut1,"mut1 ")
 PlotPropOcAll(mut2,"mut2")
 PlotPropOcAll(mut3,"mut3")
+```
 
+```{r Plot comparison of prop oc between Strains}
+ggplot()+
+  geom_point(data = combinedData %>% filter(Relation == "Pa->Pa"),aes(x=Distance,y=MeanPropOcc, color = Strain, shape =factor(BioRep) ),size=4)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap( ~ TimePoint, ncol = 3)+
+  labs(title ="Pa->Pa")+
+  theme_cowplot()
+
+ggplot()+
+  geom_point(data = combinedData %>% filter(Relation == "Sa->Pa"),aes(x=Distance,y=MeanPropOcc, color = Strain, shape =factor(BioRep) ),size=4)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap( ~ TimePoint, ncol = 3)+
+  labs(title ="Sa->Pa")+
+  theme_cowplot()
+
+ggplot()+
+  geom_point(data = combinedData %>% filter(Relation == "Pa->Sa"),aes(x=Distance,y=MeanPropOcc, color = Strain, shape =factor(BioRep)),size=4)+
+  facet_wrap( ~ TimePoint, ncol = 3)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title ="Pa->Sa")+
+  theme_cowplot()
+
+ggplot()+
+  geom_point(data = combinedData %>% filter(Relation == "Sa->Sa"),aes(x=Distance,y=MeanPropOcc, color = Strain, shape =factor(BioRep) ),size=4)+
+  facet_wrap( ~ TimePoint, ncol = 3)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title ="Sa->Sa")+
+  theme_cowplot()
+```
+
+```{r Plot comparing prop oc between time points}
+ggplot()+
+  geom_point(data = combinedData %>% filter(Relation == "Pa->Pa"), aes(x=Distance,y=MeanPropOcc, color = TimePoint) ,size=4)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(BioRep ~ Strain, ncol = 2)+
+  labs(title ="Pa->Pa")+
+  theme_cowplot()
+ggplot()+
+  geom_point(data = combinedData %>% filter(Relation == "Sa->Pa"), aes(x=Distance,y=MeanPropOcc, color = TimePoint) ,size=4)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(BioRep ~ Strain, ncol = 2)+
+  labs(title ="Sa->Pa")+
+  theme_cowplot()
+ggplot()+
+  geom_point(data = combinedData %>% filter(Relation == "Pa->Sa"), aes(x=Distance,y=MeanPropOcc, color = TimePoint) ,size=4)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(BioRep ~ Strain, ncol = 2)+
+  labs(title ="Pa->Sa")+
+  theme_cowplot()
+ggplot()+
+  geom_point(data = combinedData %>% filter(Relation == "Sa->Sa"), aes(x=Distance,y=MeanPropOcc, color = TimePoint) ,size=4)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(BioRep ~ Strain, ncol = 2)+
+  labs(title ="Sa->Sa")+
+  theme_cowplot()
+```
+
+```{r Calculating empty space}
+combinedDataEmptySpaceStaph<-combinedData %>% filter(source %in% c("finalRG", "finalRR")) %>% group_by(Distance, TimePoint, Strain, BioRep, RunRep) %>% mutate(EmptySpace =1-MeanPropOcc[source == "finalRG"]-MeanPropOcc[source == "finalRR"])
+
+combinedDataEmptySpacePa<-combinedData %>% filter(source %in% c("finalGG", "finalGR")) %>% group_by(Distance, TimePoint, Strain, BioRep, RunRep) %>% mutate(EmptySpace =1-MeanPropOcc[source == "finalGG"]-MeanPropOcc[source == "finalGR"])
+
+combinedDataEmptySpace<-bind_rows(combinedDataEmptySpaceStaph,combinedDataEmptySpacePa)
+```
+
+```{r Plot Empty space per condition}
+ggplot()+
+  geom_point(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Pa"),aes(x=Distance,y=EmptySpace, color = Strain, shape =factor(BioRep)),size=4)+
+  labs(title ="Empty Space Pa")+
+  facet_wrap(~ TimePoint, ncol = 3)+
+  theme_cowplot()
+
+ggplot()+
+  geom_point(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Sa"),aes(x=Distance,y=EmptySpace, color = Strain, shape =factor(BioRep)),size=4)+
+  labs(title ="Empty Space Sa")+
+  facet_wrap(~ TimePoint, ncol = 3)+
+  theme_cowplot()
+
+```
+```{r Plot Empty space over time}
+ggplot()+
+  geom_point(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Pa"),aes(x=Distance,y=EmptySpace, color = TimePoint),size=4)+
+  labs(title ="Empty Space Pa")+
+  facet_wrap(BioRep~ Strain , ncol = 2)+
+  theme_cowplot()
+
+ggplot()+
+  geom_point(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Sa"),aes(x=Distance,y=EmptySpace, color = TimePoint),size=4)+
+  labs(title ="Empty Space Sa")+
+  facet_wrap(BioRep~ Strain, ncol = 2)+
+  theme_cowplot()
+
+```
+```{r Plot occupancy based on focus}
+ggplot()+
+  geom_line(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Pa" & Strain == "wt"),aes(x=Distance,y=MeanPropOcc, color = Interaction),size=1)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title ="Occupied Space around Pa wt",subtitle = "Over time, per biological replicate")+
+  facet_wrap(BioRep ~ Time , ncol = 6)+
+  theme_minimal_grid()
+
+ggplot()+
+  geom_line(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Pa" & Strain == "mut"),aes(x=Distance,y=MeanPropOcc, color = Interaction),size=1)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title ="Occupied Space around Pa mut",subtitle = "Over time, per biological replicate")+
+  facet_wrap(BioRep ~ Time , ncol = 6)+
+  theme_minimal_grid()
+
+ggplot()+
+  geom_line(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Sa" & Strain == "wt"),aes(x=Distance,y=MeanPropOcc, color = Interaction),size=1)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title ="Occupied Space around Sa wt",subtitle = "Over time, per biological replicate")+
+  facet_wrap(BioRep ~ Time , ncol = 6)+
+  theme_minimal_grid()
+
+ggplot()+
+  geom_line(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Sa" & Strain == "mut"),aes(x=Distance,y=MeanPropOcc, color = Interaction),size=1)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs(title ="Occupied Space around Sa mut",subtitle = "Over time, per biological replicate")+
+  facet_wrap(BioRep ~ Time , ncol = 6)+
+  theme_minimal_grid()
+
+```
+
+```{r Plot empty space and proportional occupancy*}
+#This is a good idea, but I will get back to it later @3/25/20
+ggplot()+
+  geom_point(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Sa"),aes(x=Distance,y=MeanPropOcc, color = Strain, shape = Interaction),size=4)+
+  geom_line(data = combinedDataEmptySpace %>% filter(FocusSpecies=="Sa"),aes(x=Distance,y=EmptySpace, color = Strain),size=4)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(~ TimePoint, ncol = 3)+
+  labs(title ="title")+
+  theme_cowplot()
+
+```
+#Statistical exploration of the data.
+Three individual runs were performed independently on each of the experiments. The output of each of them is the mean proportional occupancy and it's SD. So, if the runs follow a normal distribution, their variance should be similar.
+
+```{r Plot PropOc mean and SD}
+PlotPropOcMeanSD <- function(df, name) {
+  plot1<- ggplot()+
+    geom_linerange(data=df%>% filter(RunRep==1), aes(x=Distance,ymax=MeanPropOcc+SDPropOcc,ymin=MeanPropOcc-SDPropOcc, color = Relation),size=1)+
+    facet_wrap(Time~Relation, ncol = 4)+
+    scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    labs(title =paste0(name, " proportional occupancy mean +/- SD"))+
+    theme_minimal_grid()+
+    background_grid()
+  ggsave(paste0(name,".png"),plot = plot1, width = 17, height = 10)
+  }
+
+PlotPropOcMeanSD(wt1, "wt1")
+PlotPropOcMeanSD(wt2, "wt2")
+PlotPropOcMeanSD(wt3, "wt3")
+PlotPropOcMeanSD(mut1, "mut1")
+PlotPropOcMeanSD(mut2, "mut2")
+PlotPropOcMeanSD(mut3, "mut3")
+
+PlotPropOcAllMeanSD <- function(relation) {
+  plot1<- ggplot()+
+    geom_linerange(data=combinedData %>% filter(Relation ==relation), 
+                   aes(x=Distance,ymax=MeanPropOcc+SDPropOcc,ymin=MeanPropOcc-SDPropOcc, color = Strain, linetype =factor(BioRep), group = Experiment),
+                   position = position_dodge(width =.8), size=.7)+
+    facet_wrap(~Time, ncol = 3)+
+    scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    labs(title =paste0(relation, " proportional occupancy mean +/- SD"), linetype = "Biological Replicate")+
+    theme_minimal_grid()+
+    background_grid()+
+    theme(plot.title = element_text(hjust = 0.5))
+  ggsave(paste0(relation,".png"),plot = plot1, width = 20, height = 10)
+}
+PlotPropOcAllMeanSD("Pa->Pa")
+PlotPropOcAllMeanSD("Pa->Sa")
+PlotPropOcAllMeanSD("Sa->Sa")
+PlotPropOcAllMeanSD("Sa->Pa")
+```
+Another metric used is the coefficient of variation, CV, which is the ratio of the standard deviation to the mean.So, let's also visualize that.
+```{r Plot CV}
+PlotCVrelation <- function(relation){
+  plot1<-ggplot()+
+    geom_point(data=combinedData %>% filter(Relation =="Pa->Pa"), 
+               aes(x=Distance,y = CV, color = Strain, shape = factor(BioRep), group = Experiment),
+               position = position_dodge(width =.8), size=4)+
+    geom_hline(yintercept = 1, linetype = "dashed")+
+    facet_wrap( ~ Time, ncol = 3)+
+    scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    labs(title =paste0(relation, " proportional occupancy Coefficient of variation (SD/mean)"), linetype = "Biological Replicate")+
+    theme_minimal_grid()+
+    background_grid()+
+    theme(plot.title = element_text(hjust = 0.5))
+  ggsave(paste0(relation,"-CV.eps"),plot = plot1, width = 20, height = 10)
+  ggsave(paste0(relation,"-CV.png"),plot = plot1, width = 20, height = 10)
+  }
+PlotCVrelation("Pa->Pa")
+PlotCVrelation("Pa->Sa")
+PlotCVrelation("Sa->Sa")
+PlotCVrelation("Sa->Pa")
 ```
