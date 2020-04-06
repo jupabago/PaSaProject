@@ -22,6 +22,9 @@ library(purrr)
 library(plotrix)
 library(ggsignif)
 library(rdist)
+library("vcd")#this is fro fitting models to data
+library(viridis)#color palette
+library(gganimate)#gifs for ggplot
 
 source('/Users/jupabago/Documents/Whiteley/PROJECTS/Rpackage/PropOc Package/R/PropOcFunctions2.0.R') 
 #using the new 3D script with capped spheres.
@@ -149,7 +152,7 @@ ggplot()+
 ```
 
 ```{r Plot comparing prop oc between time points}
-ggplot()+
+ggplot()+ 
   geom_point(data = combinedData %>% filter(Relation == "Pa->Pa"), aes(x=Distance,y=MeanPropOcc, color = TimePoint) ,size=4)+
   scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   facet_wrap(BioRep ~ Strain, ncol = 2)+
@@ -166,7 +169,7 @@ ggplot()+
   scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   facet_wrap(BioRep ~ Strain, ncol = 2)+
   labs(title ="Pa->Sa")+
-  theme_cowplot()
+  theme_cowplot() 
 ggplot()+
   geom_point(data = combinedData %>% filter(Relation == "Sa->Sa"), aes(x=Distance,y=MeanPropOcc, color = TimePoint) ,size=4)+
   scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
@@ -255,7 +258,6 @@ ggplot()+
 ```
 #Statistical exploration of the data.
 Three individual runs were performed independently on each of the experiments. The output of each of them is the mean proportional occupancy and it's SD. So, if the runs follow a normal distribution, their variance should be similar.
-
 ```{r Plot PropOc mean and SD}
 PlotPropOcMeanSD <- function(df, name) {
   plot1<- ggplot()+
@@ -314,4 +316,66 @@ PlotCVrelation("Pa->Pa")
 PlotCVrelation("Pa->Sa")
 PlotCVrelation("Sa->Sa")
 PlotCVrelation("Sa->Pa")
+```
+# Importing whole data sets to identify distribution of data
+```{r whole data sets}
+wt1.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/wt1-1000-1.csv"),header = T)
+
+GetHistPropOc <- function(df,timePoint, sources) {
+  data<-df %>%  filter(TimePoint==timePoint) %>% filter(source==sources) %>% group_by(Distance) %>% filter(PropOc <1.02)
+  dataList<-group_split(data)
+  histogramList<-map(dataList, HistogramDistance)
+  output<-bind_rows(histogramList)
+  return(output)
+}
+HistogramDistance <- function(df) {
+  #histogram<- hist(df$PropOc, breaks = seq.int(0,1.02,.01))
+  histogram<- hist(df$PropOc)
+  output<-data.frame(histogram$mids,histogram$counts)
+  colnames(output)<-c("Value", "Frequency")
+  output<-output %>% mutate(Distance = df$Distance[[1]]) %>% filter(!Frequency==0)
+  return(output)
+}
+PlotAllPropOcData <- function(df, relation, timepoint) {
+  ggplot()+
+    geom_point(data = df,aes(x=Value,y=Frequency, color = Distance),size=2)+
+    scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    #scale_x_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    labs(title =paste( relation, timepoint))+
+    #scale_color_viridis(option = "D")+
+    scale_color_gradientn(colours = rainbow(5))+
+    theme_cowplot()+
+    theme(plot.title = element_text(hjust = 0.5))
+}
+
+
+test<-wt1.1Whole %>% filter(source=="finalGG") %>% filter(TimePoint==5)
+wt1.RR<-wt1.1Whole %>% filter(source=="finalRR")
+hist(wt1.RR$PropOc)
+hist(wt1.RR$PropOc, breaks = seq.int(0,1.01,.01))
+
+wt1.GG<-GetHistPropOc(wt1.1Whole, 0, "finalGG")
+wt1.RG<-GetHistPropOc(wt1.1Whole, 0, "finalRG")
+wt1.RR<-GetHistPropOc(wt1.1Whole, 0, "finalRR")
+wt1.GR<-GetHistPropOc(wt1.1Whole, 0, "finalGR")
+
+
+wt1.GG.5<-GetHistPropOc(wt1.1Whole, 5, "finalGG")
+wt1.RG.5<-GetHistPropOc(wt1.1Whole, 5, "finalRG")
+wt1.RR.5<-GetHistPropOc(wt1.1Whole, 5, "finalRR")
+wt1.GR.5<-GetHistPropOc(wt1.1Whole, 5, "finalGR")
+
+
+PlotAllPropOcData(wt1.GG)
+PlotAllPropOcData(wt1.GR)
+PlotAllPropOcData(wt1.RR)
+PlotAllPropOcData(wt1.RG)
+
+PlotAllPropOcData(wt1.GG.5,5, "finalGG")
+PlotAllPropOcData(wt1.GR.5,5, "finalGR")
+PlotAllPropOcData(wt1.RR.5,5, "finalRG")
+PlotAllPropOcData(wt1.RG.5,5, "finalRG")
+
+
+
 ```
