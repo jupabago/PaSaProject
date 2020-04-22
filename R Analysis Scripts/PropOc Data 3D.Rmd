@@ -256,7 +256,7 @@ ggplot()+
   theme_cowplot()
 
 ```
-#Statistical exploration of the data.
+# Statistical exploration of the data.
 Three individual runs were performed independently on each of the experiments. The output of each of them is the mean proportional occupancy and it's SD. So, if the runs follow a normal distribution, their variance should be similar.
 ```{r Plot PropOc mean and SD}
 PlotPropOcMeanSD <- function(df, name) {
@@ -296,9 +296,9 @@ PlotPropOcAllMeanSD("Sa->Sa")
 PlotPropOcAllMeanSD("Sa->Pa")
 ```
 Another metric used is the coefficient of variation, CV, which is the ratio of the standard deviation to the mean.So, let's also visualize that.
-```{r Plot CV}
+```{r Plot CV} 
 PlotCVrelation <- function(relation){
-  plot1<-ggplot()+
+  plot1<-ggplot()+ 
     geom_point(data=combinedData %>% filter(Relation =="Pa->Pa"), 
                aes(x=Distance,y = CV, color = Strain, shape = factor(BioRep), group = Experiment),
                position = position_dodge(width =.8), size=4)+
@@ -307,8 +307,8 @@ PlotCVrelation <- function(relation){
     scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
     labs(title =paste0(relation, " proportional occupancy Coefficient of variation (SD/mean)"), linetype = "Biological Replicate")+
     theme_minimal_grid()+
-    background_grid()+
-    theme(plot.title = element_text(hjust = 0.5))
+    background_grid()+ 
+    theme(plot.title = element_text(hjust = 0.5)) 
   ggsave(paste0(relation,"-CV.eps"),plot = plot1, width = 20, height = 10)
   ggsave(paste0(relation,"-CV.png"),plot = plot1, width = 20, height = 10)
   }
@@ -318,22 +318,31 @@ PlotCVrelation("Sa->Sa")
 PlotCVrelation("Sa->Pa")
 ```
 # Importing whole data sets to identify distribution of data
-```{r whole data sets}
+```{r read whole data sets}
 wt1.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/wt1-1000-1.csv"),header = T)
+wt2.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/wt2-1000-1.csv"),header = T)
+wt3.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/wt3-1000-1.csv"),header = T)
 
+mut1.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/mut1-1000-1.csv"),header = T)
+mut2.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/mut2-1000-1.csv"),header = T)
+mut3.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/mut3-1000-1.csv"),header = T)
+```
+
+```{r functions to get propOc frequency tables}
+HistogramDistance <- function(df) {
+  histogram<- hist(df$PropOc, breaks = seq.int(0,1.02,.01)) 
+  #histogram<- hist(df$PropOc) 
+  output<-data.frame(histogram$mids,histogram$counts)
+  colnames(output)<-c("Value", "Frequency")
+  output<-output %>% mutate(Distance = df$Distance[[1]]) %>% filter(!Frequency==0)
+  return(output)
+}
 GetHistPropOc <- function(df,timePoint, sources) {
   data<-df %>%  filter(TimePoint==timePoint) %>% filter(source==sources) %>% group_by(Distance) %>% filter(PropOc <1.02)
   dataList<-group_split(data)
   histogramList<-map(dataList, HistogramDistance)
   output<-bind_rows(histogramList)
-  return(output)
-}
-HistogramDistance <- function(df) {
-  #histogram<- hist(df$PropOc, breaks = seq.int(0,1.02,.01))
-  histogram<- hist(df$PropOc)
-  output<-data.frame(histogram$mids,histogram$counts)
-  colnames(output)<-c("Value", "Frequency")
-  output<-output %>% mutate(Distance = df$Distance[[1]]) %>% filter(!Frequency==0)
+  output<-output %>% mutate(Source = sources)
   return(output)
 }
 PlotAllPropOcData <- function(df, relation, timepoint) {
@@ -347,12 +356,14 @@ PlotAllPropOcData <- function(df, relation, timepoint) {
     theme_cowplot()+
     theme(plot.title = element_text(hjust = 0.5))
 }
-
-
-test<-wt1.1Whole %>% filter(source=="finalGG") %>% filter(TimePoint==5)
-wt1.RR<-wt1.1Whole %>% filter(source=="finalRR")
-hist(wt1.RR$PropOc)
-hist(wt1.RR$PropOc, breaks = seq.int(0,1.01,.01))
+GetAllHistPropOc <- function(df, timepoint){
+  data.GG<-GetHistPropOc(df, timepoint, "finalGG")
+  data.RG<-GetHistPropOc(df, timepoint, "finalRG")
+  data.RR<-GetHistPropOc(df, timepoint, "finalRR")
+  data.GR<-GetHistPropOc(df, timepoint, "finalGR")
+return(list(data.GG,data.RR,data.RG,data.GR))
+}
+testGetAllHistPropOc<-GetAllHistPropOc(mut3.1Whole,5)
 
 wt1.GG<-GetHistPropOc(wt1.1Whole, 0, "finalGG")
 wt1.RG<-GetHistPropOc(wt1.1Whole, 0, "finalRG")
@@ -371,11 +382,9 @@ PlotAllPropOcData(wt1.GR)
 PlotAllPropOcData(wt1.RR)
 PlotAllPropOcData(wt1.RG)
 
-PlotAllPropOcData(wt1.GG.5,5, "finalGG")
-PlotAllPropOcData(wt1.GR.5,5, "finalGR")
-PlotAllPropOcData(wt1.RR.5,5, "finalRG")
-PlotAllPropOcData(wt1.RG.5,5, "finalRG")
-
-
+PlotAllPropOcData(wt1.GG.5,5, "PA->PA")
+PlotAllPropOcData(wt1.GR.5,5, "PA->SA")
+PlotAllPropOcData(wt1.RR.5,5, "SA->SA")
+PlotAllPropOcData(wt1.RG.5,5, "SA->PA")
 
 ```
