@@ -222,8 +222,8 @@ ReadResultsFile<-function(file, position, timepoint){
 ```
 
 ```{r biomass data}
-#Run the biomass functions on each set of samples and combine them at the end 
-wtResults<-MapResults(PA14wt, names3)
+#Run the biomass functions on each set of samples and combine them at the end  
+wtResults<-MapResults(PA14wt, names3) 
 mutResults<-MapResults(PA14mut, names3)
 Pa01Results<-MapResults(PA01wt, names2)
 Pa01mutResults<-MapResults(PA01mut, names1)
@@ -304,7 +304,7 @@ ggplot()+
 ```
 
 ```{r growth rates Sa}
-#first try to fit it to a model fro exponential growth:
+#first try to fit it to a model fro exponential growth: 
 exponential.model <- lm(log(cleanResultsSaMono$Totals)~ cleanResultsSaMono$TimePoint)
 summary(exponential.model)
 #not very good... So I found the package "growthrates", so I'll try that
@@ -316,9 +316,9 @@ summary(fit)#summary of values
 coef(fit) #exponential growth parameters
 rsquared(fit)  # coefficient of determination (of log-transformed data)
 deviance(fit)  # residual sum of squares of log-transformed data
-par(mfrow = c(1, 2))
+par(mfrow = c(1, 2)) 
 plot(fit, log = "y")
-plot(fit)
+plot(fit) 
 many_fits <- all_easylinear(Totals ~ TimePoint | Strain + Sample, data = cleanResultsSaMono, h = 4)#the h is the number of points considered for fit
 par(mfrow = c(3, 3))#establish the grid
 plot(many_fits,log = "y")#plot many things
@@ -430,8 +430,10 @@ ggsave("Pa z-slice PA14wt grid.png", plot = GraphSlicesTime(ResultsData, "Pa", "
 ggsave("Pa z-slice PA14mut grid.png", plot = GraphSlicesTime(ResultsData, "Pa", "PA14mut"), path = figuresPath)
 ```
 
+#Images with new threshold
+This threshold is the one calculated with the average of all the conditions
 ```{r new threshold images}
-#To get the data from the new results folder I have to rewrite this function:
+#To get the data from the new results folder I have to rewrite this function: 
 GetResults<-function(sample, samplename){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Other Data1/',sample,'/results')
   #the path just needs to be changed to"Other Data1"
@@ -488,8 +490,8 @@ GraphGrowthCurvesExpCleanCoCulture(cleanResultsStats1)
 ```{r threshold Sa by time}
 #This function keeps getting changed but using the same name... so heads up on that
 GetResults<-function(sample, samplename){
-  #folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Threshold by time/',sample,'/resultsByTime')
-  folder<- paste0('/Volumes/Seagate Backup Plus Drive/Good images/',sample,'/resultsByTime6')
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Threshold by time/',sample,'/resultsByTime6')
+  #folder<- paste0('/Volumes/Seagate Backup Plus Drive/Good images/',sample,'/resultsByTime6')
   fileList<-list.files(path = folder, full.names = TRUE)
   growthDf<-data.frame()
   #for (position in 2:3){
@@ -536,7 +538,8 @@ ggplot()+
   theme_cowplot(12)
 
 ggplot()+
-  geom_line(data=linearThresholdGrowthCurves%>% filter(Species == "Sa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals,color = source), size=2)+
+  geom_line(data=linearThresholdGrowthCurves%>% filter(Species == "Sa") %>% 
+              filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals,color = source), size=2)+
   facet_grid(Strain~Sample)+
   theme_cowplot(12)
 
@@ -546,10 +549,45 @@ ggplot()+
   facet_grid(Condition~Strain)+
   theme_cowplot(12)
 
-
-
 ```
 
+```{r Pa Growth curves from RedSubtracted Images}
+#This will give us a sense on how much of the Pa data was erased because it overlapped with the Sa data.
+GetResults<-function(sample, samplename){
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/RedSubtractedImages/',sample,'/resultsSubtractRed1')
+  #folder<- paste0('/Volumes/Seagate Backup Plus Drive/Good images/',sample,'/resultsByTime6')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  #for (position in 2:3){
+  #  currentPosition<-fileList[grep(paste0("p",position,"."),fileList)]
+  currentPosition<-fileList[grep(paste0("p2."),fileList)]
+    for (timepoint in 0:6){
+      currentTimePoint<-currentPosition[grep(paste0("t",GetNumber(timepoint),"_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, 2, timepoint))
+      #growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, position, timepoint))
+      }
+    #}
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
+
+redSubtractedData<-ProcessResults()#This was run using the "GetResults" function at the top..
+paRedSubtractResults<-redSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut"))
+nonSubtractedData<-ProcessResults()
+paNonSubtractResults<-nonSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut"))
+
+ggplot()+
+  geom_line(data=redSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color = "red", size=2)+
+  geom_line(data=nonSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color ="blue", size=2)+
+  facet_grid(Strain~Sample)+
+  theme_cowplot(12)
+
+ggplot()+
+  geom_line(data=redSubtractedData[[2]]%>% filter(Species == "Pa") %>% 
+              filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=MeanLogTotals,color = Strain), size=2)+
+  theme_cowplot(12)
+
+```
 #Functions for histograms
 ```{r new threshold images aggregates functions and data collection}
 GetAggregates<-function(sample, samplename){
@@ -578,7 +616,6 @@ allAggregates1$Position<-as.factor(allAggregates1$Position)
 allAggregates1<-allAggregates1 %>% mutate(Condition = recode(Position, "0" = "Sa Mono", "1" = "Pa Mono", "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10" ))
 
 ```
-
 
 ```{r new threshold agggregates, include=FALSE}
 #get some stats on aggregates
