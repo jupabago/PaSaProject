@@ -219,10 +219,10 @@ percentChange$culture <- factor(percentChange$culture, levels = c("mono", "wt", 
 
 ```{r graphing pooled data} 
 #now lets graph to see the inoculum consistency:
-ggplot()+
+ggplot()+ 
   geom_jitter(data=cleanDelEndpointDataEndpointOnly %>% filter(timePoint==0) , aes(x=sample, y=CFU, color =condition, shape = culture), height = 0, width = .2, size=4)+
   scale_y_log10(name=expression(paste('CFUs per mL' )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-  labs(title =expression(paste(italic("S. aureus"), " inoculum")), x = "Sample",color = "Culture condition") +
+  labs(title =expression(paste(italic("S. aureus"), " inoculum")), x = "Sample",color = "Culture condition") + 
   theme_cowplot()+
   panel_border()+
   background_grid()
@@ -439,24 +439,29 @@ ggplot()+
   background_grid()
 
 #End point bar graph with std error
-ggplot() +
+tobCFUPlot<-ggplot() +
   geom_col(data = wilcoxDataGood, aes (x = culture, y = meanLog, fill = antibiotic, group = antibiotic), position = position_dodge( ))+
   geom_linerange(data = wilcoxDataGood, aes(x = culture, ymin = meanLog - seLog, ymax = meanLog + seLog,group = antibiotic),position = position_dodge(width = .9))+
-  scale_y_continuous(expand = expand_scale(mult = c(0, 0.05)))+
-  labs(title =expression(paste(italic("S. aureus"), " growth at 5 hours")),y = "Log10 CFUs", x = "Culture condition") +
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.05)), breaks = c(0,2,4,6,8,10), labels =c(0,2,4,6,8,10))+
+  scale_x_discrete(name ="", breaks = c("mono","wt","mut"), labels =c("mono","co w/wild-type",expression("co w/"*Delta*"pqsL")))+
+  labs(y = expression(paste(Log[10], " CFU")), x = "", fill = "") +
   scale_fill_grey()+
   theme_cowplot()+
   theme_half_open()+
   background_grid()
 
-ggplot() +
+tobPercentChangePlot<-ggplot() +
   geom_col(data = percentChange %>% filter(sample == "1-25-20"), aes (x = culture, y = MeanLogKill))+
   geom_linerange(data = percentChange, aes(x = culture, ymin = MeanLogKill - SeLogKill/2, ymax = MeanLogKill + SeLogKill/2))+
   scale_y_continuous(expand = expand_scale(mult = c(0, 0.05)))+
-  labs(title =expression(paste(italic("S. aureus"), " killing by Tobramycin")),y = "Log10 kill", x = "Culture condition") +
+  scale_x_discrete(name ="", breaks = c("mono","wt","mut"), labels =c("mono","co w/wild-type",expression("co w/"*Delta*"pqsL")))+
+  labs(y = expression(paste(Log[10], " CFU")), x = "") +
   scale_fill_grey()+
   theme_cowplot()+
   theme_half_open()+
   background_grid()
 
+prow <- plot_grid(tobCFUPlot+theme(legend.position="none"),tobPercentChangePlot+theme(legend.position="none"),align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
+legend <- get_legend(tobCFUPlot + theme(legend.box.margin = margin(0, 0, 0, -6)))
+plot_grid(prow,legend,rel_widths = c(3, .4))
 ```
