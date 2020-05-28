@@ -1,0 +1,179 @@
+---
+title: "Staph killing assays"
+author: "Juan P Barraza"
+date: "1/15/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(magrittr)
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+library(scales)
+library(tidyr)
+library(growthcurver)
+library(plotrix)
+
+diskFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/Staph killing assays/disk difussion assays.csv"
+diskData <-read.csv(diskFile)
+diskData$strain <- factor(diskData$strain, levels = c("wt", "pqsl"))
+diskData <- diskData %>% mutate(val1 = value1-6,val2 = value2-6,average = (val1+val2)/2 )#this removes the diameter of the disks
+diskDataStats<-diskData %>% group_by(strain, condition, bio.rep) %>% summarise(meanTech = mean(average)) %>% ungroup() %>%group_by(strain, condition) %>% summarise(meanBio = mean(meanTech), SDBio = std.error(meanTech))
+diskDataStats$strain <- factor(diskDataStats$strain, levels = c("wt", "pqsl"))
+diskDataStats1<-diskDataStats %>% mutate(
+  CondStrain = case_when(
+    condition == "shaking" & strain == "pqsl" ~ "pqsLShake",
+    condition == "shaking" & strain == "wt"~ "wtShake",
+    condition == "static" & strain == "pqsl"~ "pqsLStat",
+    condition == "static" & strain == "wt"~ "wtStat"))
+
+diskWtShaking<-diskData %>% filter(strain == "wt" & condition == "shaking")
+diskMutShaking<-diskData %>% filter(strain == "pqsl" & condition == "shaking")
+diskWtStatic<-diskData %>% filter(strain == "wt" & condition == "static")
+diskMutStatic<-diskData %>% filter(strain == "pqsl" & condition == "static")
+
+#there is no rep 1 for mutant strain, so remove first one from wt to make paired t-test
+diskWtStatic1<-diskData %>% filter(strain == "wt" & condition == "static") %>% filter(!bio.rep==1)
+diskWtShaking1<-diskData %>% filter(strain == "wt" & condition == "shaking")%>% filter(!bio.rep==1)
+
+#t-tests
+diskWtTtest<-t.test(x = diskWtShaking$avg, y = diskWtStatic$avg, paired = T)
+diskMutTtest<-t.test(x = diskMutShaking$avg, y = diskMutStatic$avg, paired = T)
+diskShakingTtest<-t.test(x = diskWtShaking1$avg, y = diskMutShaking$avg, paired = T)
+diskStaticTtest<-t.test(x = diskMutStatic$avg, y = diskWtStatic1$avg, paired = T)
+diskWtStaticMutShakingTtest<-t.test(x = diskMutShaking$avg, y = diskWtStatic1$avg, paired = T)
+tTestData<-list(diskWtTtest, diskMutTtest,diskShakingTtest, diskStaticTtest, diskWtStaticMutShakingTtest)
+TtestTable<-name <- function(dataPoint) {
+  data <-data.frame(dataPoint$data.name, dataPoint$p.value)
+}
+tTestDataTable<-bind_rows(map(tTestData, TtestTable))
+
+ggplot()+#both PA and Sa
+  geom_errorbar(data=diskDataStats1, aes(x = strain, ymin = meanBio - SDBio, ymax = meanBio + SDBio),position = position_dodge2(width =1), width = .3)+
+  geom_point(data=diskDataStats1, aes(x=strain, y=meanBio, shape =CondStrain),position = position_dodge2(width = .3), size=3)+
+  scale_shape_manual(values = c(1,2,16,17),limits=c("wtStat","pqsLStat","wtShake", "pqsLShake"), 
+                     labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type static")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL static")),
+                                bquote(paste(italic('P. aeruginosa'), " wild-type shaking")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL shaking"))))+
+  scale_x_discrete(name ="", breaks = c("wt","pqsl"), labels =c("wild-type",expression(""*Delta*"pqsL")))+
+  labs( y = "Zone of inhibition (mm)", shape = "Growth condtion") +
+  theme_cowplot(12)
+
+
+```
+
+
+```{r yields}
+yieldFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/Pa growth yields 16 hrs/Pa growth yields 16 hrs.csv"
+yieldData <-read.csv(yieldFile)
+yieldData %>% filter(!bio.rep==3)->yieldData
+ggplot()+#both PA and Sa
+  geom_point(data=yieldData, aes(x=condition, y=bugs, shape = factor(tech.rep), color = factor(bio.rep)), size=4)+
+  facet_grid(.~strain)+
+  scale_y_log10(limits= c(1e6,1e10))+
+  labs(title =expression(paste("CFUs per mL")), x = "condtion",shape = "tech rep", color = "bio rep") 
+
+```
+```{r luminescence, include = FALSE, echo=FALSE, fig.width=12, fig.height=9, results='asis', warning=FALSE, message=FALSE}
+recode_if <- function(x, condition, ...) {
+  if_else(condition, recode(x, ...), x)
+}
+luminescenceFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/Staph killing assays/summary.csv"
+luminescenceData <-read.csv(luminescenceFile)
+luminescenceData<-luminescenceData %>% group_by(TimePoint, BioReplicate, Condition, Strain) %>% mutate(techMean = mean(Luminescence)) %>% ungroup() %>% group_by(TimePoint, Condition, Strain) %>% mutate(Mean = mean(techMean), SE =std.error(techMean)) %>% ungroup()
+luminescenceData1<-luminescenceData %>%  
+mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))#this adds up all the data on each slice and then gets the log of that total
+
+luminescenceData1<-luminescenceData %>% mutate(
+  CondStrain = case_when(
+    Condition == "shaking" & Strain == "pqsL" ~ "pqsLShake",
+    Condition == "shaking" & Strain == "wt"~ "wtShake",
+    Condition == "static" & Strain == "pqsL"~ "pqsLStat",
+    Condition == "static" & Strain == "wt"~ "wtStat"))
+
+ggplot()+#both PA and Sa
+  #geom_point(data=luminescenceData, aes(x=TimePoint, y=techMean, shape = Strain, color = Condition), size=1)+
+  geom_line(data=luminescenceData1, aes(x=TimePoint, y=Mean, linetype = Condition, group = interaction (Strain, Condition)), size=.5,show.legend = FALSE)+
+  geom_point(data=luminescenceData1, aes(x=TimePoint, y=Mean, shape = CondStrain), size=3)+
+  scale_y_log10(name=expression(paste(italic('S. aureus'), " % luminescence vs control" )), breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  labs( x = "Time (minutes)",shape = "") +
+  scale_shape_manual(values = c(1,2,16,17),limits=c("wtStat","pqsLStat","wtShake", "pqsLShake"), 
+                     labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type static")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL static")),
+                                bquote(paste(italic('P. aeruginosa'), " wild-type shaking")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL shaking"))))+
+  scale_linetype_manual(values =c("solid","dashed"))+
+  theme_cowplot(12)
+
+```
+
+```{r Staph TOB MIC}
+micFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/SA TOB MIC/SA TOB MIC.csv"
+micData <-read.csv(micFile)
+micData<-micData %>% filter(!concentration==0.5) %>% mutate(LogCounts = log10(value)) %>% group_by(concentration, condition) %>% mutate(meanLog = mean(LogCounts), seLog = std.error(LogCounts)) %>% ungroup() %>% group_by(replicate, condition)%>% mutate(LogDifference = LogCounts[concentration==0]-LogCounts) %>% ungroup() %>% group_by(concentration, condition) %>% mutate(meanLogDifference = mean(LogDifference), seLogDifference = std.error(LogDifference)) %>% filter(!concentration==0)
+controls<-micData %>% filter(concentration==0)
+cleanMicData<-anti_join(micData,controls)
+
+ggplot()+
+  geom_point(data=cleanMicData, aes(x=concentration, y=LogCounts, color = condition), size=2)+
+  geom_line(data=cleanMicData, aes(x=concentration, y=meanLog, color = condition), size=2)+
+  scale_x_log10(name=expression(paste("[TOB] ug/mL" )), breaks = c(2,8,32,64,128,256,512), labels =c(2,8,32,64,128,256,512))+
+  scale_y_continuous(name = "Log CFUs", breaks = c(0,2,4,6,8,10), labels =c(0,2,4,6,8,10))+
+  labs(title =expression(paste("S. aureus TOB MIC")), x = "[TOB] ug/mL",shape = "tech rep", color = "Condition")+
+  scale_color_grey()+
+  theme_cowplot(12)
+
+ggplot()+
+  geom_col(data=cleanMicData, aes(x=as.factor(concentration), y=meanLogDifference, fill = condition ),position =position_dodge(width = .5), width = .5)+
+  geom_linerange(data = cleanMicData, aes(x = as.factor(concentration), ymin = meanLogDifference - seLogDifference, ymax = meanLogDifference + seLogDifference, group = condition),position = position_dodge(width = .5))+
+  scale_fill_grey()+
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.05)), breaks = c(2,4,6,8,10), labels = c(2,4,6,8,10))+
+  labs(title =expression(paste("S. aureus TOB MIC")), x = "[TOB] ug/mL",y = "log CFU Change", color = "Condition")+
+  theme_cowplot()+
+  theme_half_open()+
+  background_grid()
+  
+  geom_line(data=cleanMicData, aes(x=concentration, y=meanLog, color = condition), size=2)+
+  
+  scale_y_continuous(name = "Log CFUs", breaks = c(0,2,4,6,8,10), labels =c(0,2,4,6,8,10))+
+  labs(title =expression(paste("S. aureus TOB MIC")), x = "[TOB] ug/mL",shape = "tech rep", color = "Condition")+
+  theme_cowplot(12)
+```
+
+```{r combined plots}
+
+    DiskPlot<-ggplot()+
+      geom_errorbar(data=diskDataStats1, aes(x = strain, ymin = meanBio - SDBio, ymax = meanBio + SDBio, group = condition),position = position_dodge(width = .6), width = .2)+
+      geom_point(data=diskDataStats1, aes(x=strain, y=meanBio, shape =CondStrain),position = position_dodge2(width = .6), size=3)+
+      scale_shape_manual(values = c(1,2,16,17),limits=c("wtStat","pqsLStat","wtShake", "pqsLShake"), 
+                     labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type static")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL static")),
+                                bquote(paste(italic('P. aeruginosa'), " wild-type stirred")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL stirred"))))+
+      scale_x_discrete(name ="", breaks = c("wt","pqsl"), labels =c("wild-type",expression(""*Delta*"pqsL")))+
+      labs( y = "Zone of inhibition (mm)", shape = "Growth condtion") +
+      theme_cowplot(12)
+    
+    luminescencePlot<-ggplot()+
+      geom_line(data=luminescenceData1, aes(x=TimePoint, y=Mean, linetype = Condition, group = interaction (Strain, Condition)), size=.5,show.legend = FALSE)+
+      geom_point(data=luminescenceData1, aes(x=TimePoint, y=Mean, shape = CondStrain), size=3)+
+      scale_y_log10(name=expression(paste(italic('S. aureus'), " % luminescence vs control" )))+
+      labs( x = "Time (minutes)",shape = "") +
+      scale_shape_manual(values = c(1,2,16,17),limits=c("wtStat","pqsLStat","wtShake", "pqsLShake"), 
+                     labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type static")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL static")),
+                                bquote(paste(italic('P. aeruginosa'), " wild-type stirred")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL stirred"))))+
+      scale_linetype_manual(values =c("solid","dashed"))+
+      theme(legend.position="top")+
+      theme_cowplot(12)
+    
+    legendFigure2 <- get_legend(luminescencePlot + theme(legend.box.margin = margin(0, 0, 0, -10)))
+    figure2 <- plot_grid(DiskPlot+theme(legend.position="none"),luminescencePlot+theme(legend.position="none"),
+                      align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
+    plot_grid(figure2,legendFigure2,rel_widths = c(6, 1.7))
+```
