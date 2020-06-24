@@ -16,7 +16,9 @@ library(scales)
 library(tidyr)
 library(growthcurver)
 library(plotrix)
+```
 
+```{r zone of inhibition data input}
 diskFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/Staph killing assays/disk difussion assays.csv"
 diskData <-read.csv(diskFile)
 diskData$strain <- factor(diskData$strain, levels = c("wt", "pqsl"))
@@ -29,7 +31,11 @@ diskDataStats1<-diskDataStats %>% mutate(
     condition == "shaking" & strain == "wt"~ "wtShake",
     condition == "static" & strain == "pqsl"~ "pqsLStat",
     condition == "static" & strain == "wt"~ "wtStat"))
+```
 
+
+```{r zone of inhibition t-tests}
+#the following data frames are meant to be used for t-tests
 diskWtShaking<-diskData %>% filter(strain == "wt" & condition == "shaking")
 diskMutShaking<-diskData %>% filter(strain == "pqsl" & condition == "shaking")
 diskWtStatic<-diskData %>% filter(strain == "wt" & condition == "static")
@@ -50,7 +56,8 @@ TtestTable<-name <- function(dataPoint) {
   data <-data.frame(dataPoint$data.name, dataPoint$p.value)
 }
 tTestDataTable<-bind_rows(map(tTestData, TtestTable))
-
+```
+```{r zone of inhibition plot }
 ggplot()+#both PA and Sa
   geom_errorbar(data=diskDataStats1, aes(x = strain, ymin = meanBio - SDBio, ymax = meanBio + SDBio),position = position_dodge2(width =1), width = .3)+
   geom_point(data=diskDataStats1, aes(x=strain, y=meanBio, shape =CondStrain),position = position_dodge2(width = .3), size=3)+
@@ -79,14 +86,11 @@ ggplot()+#both PA and Sa
 
 ```
 ```{r luminescence, include = FALSE, echo=FALSE, fig.width=12, fig.height=9, results='asis', warning=FALSE, message=FALSE}
-recode_if <- function(x, condition, ...) {
-  if_else(condition, recode(x, ...), x)
-}
-luminescenceFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/pqsL SCFM2/Staph killing assays/summary.csv"
+luminescenceFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Staph killing assays/summary.csv"
 luminescenceData <-read.csv(luminescenceFile)
 luminescenceData<-luminescenceData %>% group_by(TimePoint, BioReplicate, Condition, Strain) %>% mutate(techMean = mean(Luminescence)) %>% ungroup() %>% group_by(TimePoint, Condition, Strain) %>% mutate(Mean = mean(techMean), SE =std.error(techMean)) %>% ungroup()
-luminescenceData1<-luminescenceData %>%  
-mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))#this adds up all the data on each slice and then gets the log of that total
+#luminescenceData1<-luminescenceData %>%  
+#mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))#this adds up all the data on each slice and then gets the log of that total
 
 luminescenceData1<-luminescenceData %>% mutate(
   CondStrain = case_when(
@@ -144,8 +148,8 @@ ggplot()+
   theme_cowplot(12)
 ```
 
-```{r combined plots}
-
+```{r final plots, version 1}
+#this is the original Figure but it needs to be split in two parts
     DiskPlot<-ggplot()+
       geom_errorbar(data=diskDataStats1, aes(x = strain, ymin = meanBio - SDBio, ymax = meanBio + SDBio, group = condition),position = position_dodge(width = .6), width = .2)+
       geom_point(data=diskDataStats1, aes(x=strain, y=meanBio, shape =CondStrain),position = position_dodge2(width = .6), size=3)+
@@ -176,4 +180,65 @@ ggplot()+
     figure2 <- plot_grid(DiskPlot+theme(legend.position="none"),luminescencePlot+theme(legend.position="none"),
                       align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
     plot_grid(figure2,legendFigure2,rel_widths = c(6, 1.7))
+```
+```{r final plots, version 2}
+#this figure needs to be split to show only wt data and mutant data and limit the time point to 7 minutes for the luminescence.
+
+    DiskPlotWt<-ggplot()+
+      geom_errorbar(data=diskDataStats1 %>% filter (strain == "wt"), aes(x = condition, ymin = meanBio - SDBio, ymax = meanBio + SDBio),width = .2)+
+      geom_point(data=diskDataStats1 %>% filter (strain == "wt"), aes(x=condition, y=meanBio, shape =condition), size=3)+
+      scale_shape_manual(values = c(1,2),limits=c("static","shaking"), 
+                     labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type static")),
+                                bquote(paste(italic('P. aeruginosa'), " wild-type stirred"))))+
+      scale_x_discrete(name ="", breaks = c("static","shaking"), labels =c("Static","Stirred"))+
+    ylim(0,17.5)+
+  labs( y = "Zone of inhibition (mm)", shape = "Growth condtion") +
+      theme_cowplot(12)
+
+    DiskPlotMut<-ggplot()+
+      geom_errorbar(data=diskDataStats1 %>% filter (strain == "pqsl"), aes(x = condition, ymin = meanBio - SDBio, ymax = meanBio + SDBio),width = .2)+
+      geom_point(data=diskDataStats1 %>% filter (strain == "pqsl"), aes(x=condition, y=meanBio, shape =condition), size=3)+
+      scale_shape_manual(values = c(16,17),limits=c("static","shaking"), 
+                     labels = c(bquote(paste(italic('P. aeruginosa '), Delta*"pqsL static")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL stirred"))))+
+      ylim(0,17.5)+
+      scale_x_discrete(name ="", breaks = c("static","shaking"), labels =c("Static","Stirred"))+
+      labs( y = "Zone of inhibition (mm)", shape = "Growth condtion") +
+      theme_cowplot(12)
+    
+    luminescencePlotWt<-ggplot()+
+      geom_line(data=luminescenceData1 %>% filter (Strain == "wt") %>% filter (TimePoint<7), aes(x=TimePoint, y=Mean, group = Condition), size=.5, show.legend = FALSE)+
+      geom_point(data=luminescenceData1%>% filter (Strain == "wt") %>% filter (TimePoint<7), aes(x=TimePoint, y=Mean, shape = Condition), size=3)+
+      scale_y_log10(name=expression(paste(italic('S. aureus'), " % luminescence vs control" )), limits = c(1,121),labels = c(1, 10, 100),breaks = c(1, 10, 100))+
+      labs( x = "Time (minutes)",shape = "") +
+      scale_shape_manual(values = c(1,2),limits=c("static","shaking"), 
+                     labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type static")),
+                                bquote(paste(italic('P. aeruginosa'), " wild-type stirred"))))+
+      theme(legend.position="top")+
+      theme_cowplot(12)
+    
+    luminescencePlotMut<-
+      ggplot()+
+      geom_line(data=luminescenceData1 %>% filter (Strain == "pqsL") %>% filter (TimePoint<8), aes(x=TimePoint, y=Mean, group = Condition), size=.5, show.legend = FALSE)+
+      geom_point(data=luminescenceData1%>% filter (Strain == "pqsL") %>% filter (TimePoint<8), aes(x=TimePoint, y=Mean, shape = Condition), size=3)+
+      scale_y_log10(name=expression(paste(italic('S. aureus'), " % luminescence vs control" )),limits = c(1,121), labels = c(1,10,100),breaks = c(1, 10, 100))+
+      labs( x = "Time (minutes)",shape = "") +
+      scale_shape_manual(values = c(16,17),limits=c("static", "shaking"), 
+                     labels = c(bquote(paste(italic('P. aeruginosa '), Delta*"pqsL static")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL stirred"))))+
+      theme(legend.position="top")+
+      theme_cowplot(12)
+#Figure 2
+
+    legendFigure2 <- get_legend(DiskPlotWt + theme(legend.box.margin = margin(0, 0, 0, -10)))
+    figure2 <- plot_grid(DiskPlotWt+theme(legend.position="none"),luminescencePlotWt+theme(legend.position="none"),
+                      align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
+    plot_grid(figure2,legendFigure2,rel_widths = c(6, 1.7))
+    
+#Figure 5
+    legendFigure5 <- get_legend(DiskPlotMut + theme(legend.box.margin = margin(0, 0, 0, -10)))
+    figure5 <- plot_grid(DiskPlotMut+theme(legend.position="none"),luminescencePlotMut+theme(legend.position="none"),
+                      align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
+    plot_grid(figure5,legendFigure5,rel_widths = c(6, 1.7))
+    
 ```
