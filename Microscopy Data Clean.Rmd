@@ -1,0 +1,463 @@
+---
+title: "microscopy Data Clean"
+author: "Juan P Barraza"
+date: "7/8/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+```{r setup}
+library(pixmap)
+library(rtiff)
+library(reshape2)
+library(gplots)
+library(dplyr)
+library(gdata)
+library(ggplot2)
+library(cowplot)
+library(magrittr)
+library(tidyr)
+library(purrr)
+
+PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
+PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
+PA01wt<- c('3-26-19','4-18-19')
+PA01mut<- c('4-23-19')
+names3<-c('rep1','rep2','rep3')
+names2<-c('rep1','rep2')
+names1<-c('rep1')
+
+GetNumber<-function(idx){
+  if (idx<10){
+    idx = paste0(0,idx)
+  }
+  return (idx)
+}
+```
+
+```{r Pa Growth curves from RedSubtracted Images}
+#This will give us a sense on how much of the Pa data was erased because it overlapped with the Sa data.
+ReadResultsFile<-function(file, position, timepoint){#reads the results file and outputs data
+  datos <-read.csv(file, header = FALSE)
+  colnames(datos)<-c('Red', 'Green', 'Slice')
+  datos<-datos %>% mutate(Position = position)
+  datos<-datos %>% mutate(TimePoint = timepoint)
+  return(datos)
+}
+GetResults<-function(sample, samplename){#points to folder with files. Folder is hardcoded, unfortunately
+  #folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/RedSubtractedImages/',sample,'/resultsSubtractRed1')#for pa co only
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Other Data1/',sample,'/results')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  #for (position in 2:3){
+  #  currentPosition<-fileList[grep(paste0("p",position,"."),fileList)]
+  currentPosition<-fileList[grep(paste0("p2."),fileList)]#only running p2, which in this case 
+    for (timepoint in 0:6){
+      currentTimePoint<-currentPosition[grep(paste0("t",GetNumber(timepoint),"_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, 2, timepoint))
+      #growthDf<-rbind(growthDf,ReadResultsFile(currentTimePoint, position, timepoint))
+      }
+    #}
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
+MapResults<- function(listSamples, reps){
+  blah <-deparse(substitute(listSamples))
+  mappedData<-map2(listSamples, reps, GetResults)
+  boundData<-bind_rows(mappedData)
+  boundData<-boundData %>% mutate(Strain = blah)
+  boundData<-gather(boundData,"Color","Value",-Slice,-Position,-Sample,-TimePoint,-Strain) %>% mutate(LogValue=ifelse(Value>0,log10(Value),0))
+  boundData<-boundData %>% mutate(Condition = recode(Position, "0" = "Sa Mono", "1" = "Pa Mono", "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10" )) %>% mutate(Species = recode(Color, "Red" = "Sa", "Green" = "Pa")) %>% mutate(ZDistance = Slice *0.44)
+  boundData$Condition<-as.factor(boundData$Condition)
+  boundData$Condition<-factor(boundData$Condition, levels = c("Sa Mono", "Pa Mono", "Pa:Sa 1:1", "Pa:Sa 1:10", "Pa:Sa 1:100","Pa:Sa 10:1"))
+  boundData$Species<-as.factor(boundData$Species)
+  boundData$Strain<-as.factor(boundData$Strain)
+  return(boundData)
+  }
+ProcessResults <-function(){
+  wt<-MapResults(PA14wt, names3)
+  mut<-MapResults(PA14mut, names3)
+  #combine them:
+  results<-rbind(wt,mut)
+  #Add up all the data on each slice and then get the log of that total
+  resultsSum<-results %>% group_by(TimePoint,Sample,Strain,Condition,Species)%>% 
+    summarise(Totals = sum (Value))%>%
+    mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))
+  #get stats between replicates
+  resultsStats<-resultsSum %>% group_by(TimePoint,Strain,Condition,Species) %>% 
+    summarise(MeanTotals = mean(Totals), SDTotals = sd(Totals), MeanLogTotals = mean(LogTotals), SDLogTotals = sd(LogTotals)) %>% 
+    mutate(MeanLogTotalsRevd = 10^MeanLogTotals, SDLogTotalsRevd =10^(SDLogTotals))
+  results <- list(resultsSum,resultsStats)
+  return(results)
+} 
+
+redSubtractedData<-ProcessResults()#test function
+redSubtractedDataSummary<-redSubtractedData[[1]]
+paRedSubtractResults<-redSubtractedDataSummary%>% filter(Species == "Pa")
+saRedSubtractResults<-redSubtractedDataSummary%>% filter(Species == "Sa")
+
+nonSubtractedData<-ProcessResults()
+nonSubtractedDataSummary<-nonSubtractedData[[1]]#%>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut"))#this may be used later
+paNonSubtractResults<-nonSubtractedData[[1]]%>% filter(Species == "Pa") 
+saNonSubtractResults<-nonSubtractedData[[1]]%>% filter(Species == "Sa") 
+
+```
+
+```{r biomass data exploration for Sa}
+#comparing the data from red subtracted 
+ggplot()+
+  geom_line(data=redSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color = "red", size=.2)+
+  geom_line(data=nonSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color ="blue", size=.2)+
+  facet_grid(Strain~Sample)+
+  theme_cowplot(12)
+#the numbers for Pa after subracting Sa dont really change, so it should be fine.
+
+ggplot()+#this is a summary of Pa Data for all replicates
+  geom_line(data=redSubtractedData[[2]]%>% filter(Species == "Pa") %>% 
+              filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=MeanLogTotals,color = Strain), size=2)+
+  theme_cowplot(12)
+
+#Compare biomass of Staph wt vs mutant from replicates
+saRedSubtractResults1<-saRedSubtractResults %>% ungroup() %>% group_by(Sample, TimePoint) %>% 
+  mutate (mutantAbsDifference = (abs(Totals -Totals[Strain == "PA14mut"])/Totals )) %>% 
+  mutate (mutantRatio = (Totals[Strain == "PA14mut"])/Totals ) %>% ungroup() %>% 
+  group_by(Strain, TimePoint) %>% mutate (repDifference1.2 = (abs(Totals[Sample == "rep1"] -Totals[Sample == "rep2"]))/Totals[Sample == "rep2"]) %>% 
+  mutate (repDifference2.3 = (abs(Totals[Sample == "rep2"] -Totals[Sample == "rep3"]))/Totals[Sample == "rep3"] ) %>% 
+  mutate (repDifference1.3 = (abs(Totals[Sample == "rep1"] -Totals[Sample == "rep3"]))/Totals[Sample == "rep3"] ) %>% ungroup()
+  
+tidysaRedSubtractResults1<-saRedSubtractResults1 %>% gather(Comparison, Difference, -TimePoint, -Sample, -Strain, -Condition, -Species, -Totals, -LogTotals) %>% filter(!Difference == 0)
+
+ggplot()+#plotting the absolute difference between replicates and strains
+  geom_point(data = tidysaRedSubtractResults1 %>% filter(!Comparison=="mutantRatio"),
+              aes(x=TimePoint,y=Difference, color = Comparison, shape = Strain),size=3, height = 0, width = .2)+
+  labs(title ="Variance comparison between strains and replicates")+
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot()+#plotting the absolute difference between strains only
+  geom_jitter(data = tidysaRedSubtractResults1 %>% filter(Comparison=="mutantRatio") %>% filter(!Difference == 1),
+              aes(x=TimePoint,y=Difference, color = Comparison, shape = Sample),size=3, height = 0, width = .2)+
+  labs(title ="Variance comparison mutant/wt")+
+  scale_y_log10(breaks = c(0.5,.25,1,2.5,5,10))+#breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+#Functions for histograms
+```{r new threshold images aggregates functions and data collection}
+ReadAggregateFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab
+  datos <-read.csv(file, header = TRUE)
+  colnames(datos)<-c('Size', 'Species')
+  datos<-datos %>% mutate(Position = position)
+  datos<-datos %>% mutate(TimePoint = timepoint)
+  return(datos)
+}
+
+
+#!!! two versions of the following function, one is for red subtract and the other one for the rest.
+GetAggregates<-function(sample, samplename){#iterate through files in folder
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Other Data1/', sample, '/aggregateSizes1')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  for (position in 0:2){#only positions that are used
+    currentPosition<-fileList[grep(paste0("p_",position,"."),fileList)]
+    for (timepoint in 0:6){#only important time points
+      currentTimePoint<-currentPosition[grep(paste0("t_",GetNumber(timepoint),"p_"),currentPosition)]
+      growthDf<-rbind(growthDf,ReadAggregateFile(currentTimePoint, position, timepoint))
+      }
+  }
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
+
+MapAggregates<- function(listSamples, reps){#run it for all the samples
+  mappedData<-map2(listSamples, reps, GetAggregates) 
+  boundData<-bind_rows(mappedData) 
+  blah <-deparse(substitute(listSamples)) 
+  boundData<-boundData %>% mutate(Strain = blah)#needs to be two lines, it doesnt work if you do it directly
+  return(boundData)
+  } 
+
+
+wtAggregates1<-MapAggregates(PA14wt, names3)
+mutAggregates1<-MapAggregates(PA14mut, names3)
+allAggregates<-bind_rows(wtAggregates1,mutAggregates1)
+allAggregatesClean<-allAggregates %>% filter(!Size<0.5) %>% filter(!(Position==1 & Species=="Sa")) %>% filter(!(Position==0 & Species=="Pa"))%>% filter(!Species =="")#for some reason there are a bunch of "aggregates with no species, it may be a way in which the files are being handled.
+
+#allAggregatesClean1<-allAggregates %>% filter(!Species =="")%>% filter(!(Position==1 & Species=="Sa")) %>% filter(!(Position==0 & Species=="Pa"))#this is only to check for smaller aggregates biomass
+
+#quick evaluation of how much biomass is lost when you remove aggregates smaller than 0.5 um3:
+biomassInAllAggs<-allAggregatesClean1 %>% group_by(Species, Position, TimePoint, Strain) %>% summarise(Biomass = sum(Size))
+biomassIn0.5Aggs<-allAggregatesClean %>% group_by(Species, Position, TimePoint, Strain) %>% summarise(Biomass = sum(Size))
+biomassAggsComparison<-combine(biomassInAllAggs,biomassIn0.5Aggs)
+ggplot()+
+  geom_point(data = biomassAggsComparison,aes(x=TimePoint,y=Biomass, color = source, shape =Strain ),size=4)+
+  facet_grid(~Species)+
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+#so only a modest change in biomass, so it shouldnt be a problem.
+
+#now make them all factors
+allAggregatesClean$Strain<-as.factor(allAggregatesClean$Strain)
+allAggregatesClean$Sample<-as.factor(allAggregatesClean$Sample)
+allAggregatesClean$TimePoint<-as.factor(allAggregatesClean$TimePoint)
+allAggregatesClean$Position<-as.factor(allAggregatesClean$Position)
+allAggregatesClean<-allAggregatesClean %>% mutate(Condition = recode(Position, "0" = "Sa Mono", "1" = "Pa Mono", "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10" ))
+
+#redSubtract aggregates you have to change the "getAggregates function
+#!!! this is the second version of the function
+GetAggregates<-function(sample, samplename){#iterate through files in folder
+  folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Other Data1/', sample, '/aggregateSizesRedSubtract')
+  fileList<-list.files(path = folder, full.names = TRUE)
+  growthDf<-data.frame()
+  position =2#red subtract only
+    currentPosition<-fileList[grep(paste0("p2"),fileList)]#only for red subtract
+    for (timepoint in 0:6){#only important time points
+      currentTimePoint<-currentPosition[grep(paste0("t",GetNumber(timepoint),"_p2"),currentPosition)]#this is for pa red subtract only
+      growthDf<-rbind(growthDf,ReadAggregateFile(currentTimePoint, position, timepoint))
+  }
+  growthDf<-growthDf %>% mutate(Sample = samplename)
+return(growthDf)
+}
+
+wtAggregates<-MapAggregates(PA14wt, names3)
+mutAggregates<-MapAggregates(PA14mut, names3)
+allAggregatesredSubtract<-bind_rows(wtAggregates,mutAggregates)
+allAggregatesredSubtractClean<-allAggregatesredSubtract %>% filter(!Size<0.5) %>% filter(!(Position==1 & Species=="Sa")) %>% filter(!(Position==0 & Species=="Pa"))%>% filter(!Species =="")#for some reason there are a bunch of "aggregates with no species, it may be a way in which the files are being handled.
+
+#also for the redsubtract
+allAggregatesredSubtractClean$Strain<-as.factor(allAggregatesredSubtractClean$Strain)
+allAggregatesredSubtractClean$Sample<-as.factor(allAggregatesredSubtractClean$Sample)
+allAggregatesredSubtractClean$TimePoint<-as.factor(allAggregatesredSubtractClean$TimePoint)
+allAggregatesredSubtractClean$Position<-as.factor(allAggregatesredSubtractClean$Position)
+allAggregatesredSubtractClean<-allAggregatesredSubtractClean %>% mutate(Condition = recode(Position, "0" = "Sa Mono", "1" = "Pa Mono", "2" = "Pa:Sa 1:1", "3" = "Pa:Sa 10:1", "4" = "Pa:Sa 1:100", "5" = "Pa:Sa 1:10" ))
+```
+
+```{r new threshold agggregates, include=FALSE}
+#get some stats on aggregates
+allAggregateDataSummary<-allAggregatesClean %>% group_by(Species,Condition, TimePoint, Sample, Strain) %>% summarise(Aggs = n(), biomass = sum(Size), meanAggSize = mean(Size), sDAggSize = sd(Size), maxSize = max(Size), minSize = min(Size))
+
+allAggregateDataSummaryTime5wt<- allAggregateDataSummary %>% filter (TimePoint == 0) %>% filter(Strain=="PA14wt")%>% filter(Condition == "Pa:Sa 1:1") %>% filter(Species == "Pa")
+
+allAggregateredsubtractDataSummary<-allAggregatesredSubtractClean %>% group_by(Species,Condition, TimePoint, Sample, Strain) %>% summarise(Aggs = n(), biomass = sum(Size), meanAggSize = mean(Size), sDAggSize = sd(Size), maxSize = max(Size), minSize = min(Size))
+
+allAggregateredsubtractDataSummary0wt<- allAggregateredsubtractDataSummary %>% filter (TimePoint == 0) %>% filter(Strain=="PA14wt")%>% filter(Condition == "Pa:Sa 1:1") %>% filter(Species == "Pa")
+
+
+#now I have to remove the one condition and add it from the removed
+removeNonRedSubtractData<- allAggregateDataSummary %>% filter(!Condition == "Pa:Sa 1:1")
+removeNonRedSubtractData$Position<-as.factor(removeNonRedSubtractData$Position)
+removeNonRedSubtractData$Strain<-as.factor(removeNonRedSubtractData$Strain)
+removeNonRedSubtractData$Sample<-as.factor(removeNonRedSubtractData$Sample)
+removeNonRedSubtractData$TimePoint<-as.factor(removeNonRedSubtractData$TimePoint)
+
+combinedRedSubtractData<-bind_rows(removeNonRedSubtractData,allAggregateredsubtractDataSummary)
+
+#Summary figure for total aggregate numbers
+ggplot()+
+  geom_jitter(data = allAggregateDataSummary, aes(x = TimePoint, y= Aggs, color = Species, shape = Strain), width = 0, height = 0)+
+  geom_smooth(data = allAggregateDataSummary, aes(x = TimePoint, y= Aggs, color = Species, linetype = Strain, group = interaction(Species, Strain)))+
+  facet_wrap(.~Condition)+
+  scale_y_continuous(limits= c(0,1e4))+
+  ggtitle('Number of aggregates per experiment')+
+  labs(x = "Time (hours)",y = "Number of Aggregates")+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot()+
+  geom_jitter(data = combinedRedSubtractData, aes(x = TimePoint, y= Aggs, color = Species, shape = Strain), width = 0, height = 0)+
+  geom_smooth(data = combinedRedSubtractData, aes(x = TimePoint, y= Aggs, color = Species, linetype = Strain, group = interaction(Species, Strain)))+
+  facet_wrap(.~Condition)+
+  scale_y_continuous(limits= c(0,1e4))+
+  ggtitle('Number of aggregates per experiment')+
+  labs(x = "Time (hours)",y = "Number of Aggregates")+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+#it turns out that there is little to no difference between the redsbutract images and the other ones =(
+#now we filter for only the time point that we care, which is hour 5:
+aggregatesDataTime5wt<- combinedRedSubtractData %>% filter (TimePoint == 5) %>% filter(Strain=="PA14wt")
+aggregatesDataTime5mut<- combinedRedSubtractData %>% filter (TimePoint == 5) %>% filter(Strain=="PA14mut")
+
+#this is a decent outline of the aggregates
+ggplot()+
+  geom_jitter(data = aggregatesDataTime5wt, aes(x = Condition, y= meanAggSize, color = Species,shape = "MeanSize"), height = 0)+
+  geom_jitter(data = aggregatesDataTime5wt, aes(x = Condition, y= maxSize, color = Species, shape = "MaxSize"), height = 0)+
+  geom_jitter(data = aggregatesDataTime5wt, aes(x = Condition, y= biomass, color = Species, shape = "TotalBiomass"), height = 0)+  
+  #geom_smooth(data = aggregatesDataTime5, aes(x = , y= meanAggSize, color = Species, linetype = Strain, group = interaction(Species)))+
+  facet_wrap(Species~.)+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  ggtitle('Aggregates summary: Mean, largest and total biomass')+
+  labs(x = "Time (hours)",y = "um3")+
+  scale_shape_manual(name="Metric",values=c(MeanSize=1, MaxSize=2, TotalBiomass=17))+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+  
+#this led me to introduce another metric: ratio of largest aggregate to total biomass
+allDataSummary<-allDataSummary %>% mutate(RatioMaxTotal = maxSize/biomass )
+
+ggplot()+
+  geom_jitter(data = allDataSummary, aes(x = TimePoint, y= RatioMaxTotal, color = Species, shape = Strain), width = 0, height = 0)+
+  geom_hline(yintercept=1, linetype = "dashed")+
+  geom_smooth(data = allDataSummary, aes(x = TimePoint, y= RatioMaxTotal, color = Species, linetype = Strain, group = interaction(Species, Strain)))+
+  facet_wrap(.~Condition)+
+  ggtitle('Ratio of largest aggregate to total biomass')+
+  labs(x = "Time (hours)",y = "Proportion of largest aggregate to total biomass")
+#this seems to have a lot of noise, how does that compare to actual biomass?
+ggplot()+
+  geom_jitter(data = allDataSummary, aes(x = TimePoint, y= biomass, color = Species, shape = Strain), width = 0, height = 0)+
+  geom_smooth(data = allDataSummary, aes(x = TimePoint, y= biomass, color = Species, linetype = Strain, group = interaction(Species, Strain)))+
+  scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  facet_wrap(.~Condition)+
+  ggtitle("Total biomass")+
+  labs(x = "Time (hours)",y = "Total biomass")
+```
+
+#Aggregate histograms
+```{r Aggregate histograms functions}
+FancyHistogram<-function(df, sec){#my own way of doing histograms which includes the sum and mean of values whitin each bin
+  results<-data.frame()
+  for( i in 1:(length(sec)-1)){
+    df %>% filter(Size > sec[i] &Size<=sec[i+1])%>%summarise(frequency = n(), avg = mean(Size),suma = sum(Size)) %>% mutate(bin = i, min = sec[i],max = sec[i+1])->blah 
+    if(blah$frequency>0){
+    results<-rbind(results, blah)}
+  }
+  return(results)
+  }
+TotalFancyHistogram<-function(df,binsize){
+  totalbiomass<-sum(df$Size)#total biomass per sample
+  totalfrequency<-length(df$Size)#total number of objects
+  upperLim<-max(df$Size)+binsize-(max(df$Size)%%binsize)#largest bin size based in largest object
+  breaksSequence<-seq(0,upperLim,binsize)#this makes breaks every "binsize" 
+  histogram<-FancyHistogram(df,breaksSequence)#apply "fancy histogram" to get distributions
+  histogram%>%mutate(BiomassBin=suma/totalbiomass)->histogram#add column with proportion of biomas per bin
+  histogram%>%mutate(Density=frequency/totalfrequency)->histogram#add column with proportion of counts per bin
+  histogram%>%mutate(Species=df$Species[1])->histogram#add column maintaining sample and so on...
+  histogram%>%mutate(Condition=df$Condition[1])->histogram
+  histogram%>%mutate(TimePoint=df$TimePoint[1])->histogram
+  histogram%>%mutate(Sample=df$Sample[1])->histogram
+  histogram%>%mutate(Strain=df$Strain[1])->histogram
+  return(histogram)
+}
+TotalHistogram<-function(df){
+  biomass<-df$Size
+  totalbiomass<-sum(biomass)
+  upperLim<-max(biomass)+5-mod(max(biomass),5)
+  breaksSequence<-seq(0,upperLim,5)#this makes breaks every 100 pixels
+  histogram<-data.frame()
+  currentHist<-hist(biomass, plot = F, breaks = breaksSequence)
+  histogram<-data.frame(currentHist$counts,currentHist$mids)
+  colnames(histogram)<-c("Counts", "Midpoint")
+  histogram<-histogram[!(histogram$Counts==0),]#remove zeros
+  histogram%>%mutate(BiomassBin=Counts*Midpoint)->histogram
+  histogram%>%mutate(NormBiomassBin=BiomassBin/totalbiomass)->histogram
+  return(histogram)
+}
+
+##This is done just once, afterwards I just pull them up from the csv file since it takes some time to get them.
+#group them to get histograms for each experimental condition
+allData<-allAggregates1 %>% group_by(Species, Condition, TimePoint, Sample, Strain)#first do the correct grouping
+aggregatesList<- group_split(allData)#create list of dataframes
+allDataHistograms.5<-map2(aggregatesList, 5,TotalFancyHistogram)#apply histogram function to all items in the list
+allDataHistograms.10<-map2(aggregatesList, 10,TotalFancyHistogram)#apply histogram function to all items in the list
+allDataHistograms.50<-map2(aggregatesList, 50,TotalFancyHistogram)#apply histogram function to all items in the list
+allDataHistograms.100<-map2(aggregatesList, 100,TotalFancyHistogram)#apply histogram function to all items in the list
+
+allDataHistograms.5df<- bind_rows(allDataHistograms.5)
+allDataHistograms.10df<- bind_rows(allDataHistograms.10)
+allDataHistograms.50df<- bind_rows(allDataHistograms.50)
+allDataHistograms.100df<- bind_rows(allDataHistograms.100)
+
+write.csv(allDataHistograms.5df, file = '/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms5.csv')
+write.csv(allDataHistograms.10df,file = '/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms10.csv')
+write.csv(allDataHistograms.50df,file = '/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms50.csv')
+write.csv(allDataHistograms.100df,file = '/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms100.csv')
+```
+
+```{r new threshold images histogram plots}
+allDataHistograms.5df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms5.csv',header=T)
+allDataHistograms.10df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms10.csv',header=T)
+allDataHistograms.50df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms50.csv',header=T)
+allDataHistograms.100df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms100.csv',header=T)
+allDataHistograms.100df<-allDataHistograms.100df %>% mutate(Coculture = recode(Condition, "Sa Mono" = "No", "Pa Mono" = "No", "Pa:Sa 1:1" = "Yes","Pa:Sa 10:1"= "Yes", "Pa:Sa 1:100" = "Yes", "Pa:Sa 1:10" = "Yes"))
+allDataHistograms.5df<-allDataHistograms.5df %>% mutate(Coculture = recode(Condition, "Sa Mono" = "No", "Pa Mono" = "No", "Pa:Sa 1:1" = "Yes","Pa:Sa 10:1"= "Yes", "Pa:Sa 1:100" = "Yes", "Pa:Sa 1:10" = "Yes"))
+  
+plotHist3DBiomassCountsLog<-function(df1, title){
+  ggplot()+
+    geom_point(data=df1,aes(x=max, y=frequency, color = Coculture, shape = Condition))+
+    scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    xlab('Biomass (um^3)')+
+    ylab('Frequency')+
+    ggtitle(paste0(title," Raw biomass Distribution (bin size = 100 um)"))+
+    facet_wrap(~TimePoint, nrow=4)
+}
+#This shows that the Sa biomass that gets eaten by Staph is from the largest aggregates, not from the small ones
+plotHist3DBiomassCountsLog(allDataHistograms.100df %>% filter(Species == "Sa"), "Sa co-culture vs mono")
+plotHist3DBiomassCountsLog(allDataHistograms.100df %>% filter(Species == "Pa"), "Pa co-culture vs mono")
+
+plotHist3DBiomassCounts<-function(df1, title){
+  ggplot()+
+    geom_point(data=df1,aes(x=max, y=frequency, color = Strain, shape = Sample))+
+    scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    xlab('Biomass (um^3)')+
+    ylab('Frequency')+
+    ggtitle(paste0(title," Raw biomass Distribution (bin size = 5 um)"))+
+    facet_wrap(~TimePoint, nrow=4)
+}
+#this shows how different ratios work to delay the dissapearance of large aggregates of staph in the samples
+plotHist3DBiomassCounts(allDataHistograms.5df%>%filter(Species=="Sa") %>% filter(Condition == "Pa:Sa 1:100")%>% filter(max<101),"Sa in Pa:Sa 1:100 only")
+plotHist3DBiomassCounts(allDataHistograms.5df%>%filter(Species =="Sa") %>% filter(Condition=="Pa:Sa 1:10")%>% filter(max<101),"Sa in Pa:Sa 1:10 only")
+plotHist3DBiomassCounts(allDataHistograms.5df%>%filter(Species == "Sa") %>%filter(Condition=="Pa:Sa 10:1")%>% filter(max<101),"Sa in Pa:Sa 10:1 only")
+#this shows how early or late large aggregates of pseudomonas appear according to the ratio
+plotHist3DBiomassCounts(allDataHistograms.5df%>%filter(Species=="Pa") %>% filter(Condition == "Pa:Sa 1:100")%>% filter(max<101),"Pa in Pa:Sa 1:100 only")
+plotHist3DBiomassCounts(allDataHistograms.5df%>%filter(Species =="Pa") %>% filter(Condition=="Pa:Sa 1:10")%>% filter(max<101),"Pa in Pa:Sa 1:10 only")
+plotHist3DBiomassCounts(allDataHistograms.5df%>%filter(Species == "Pa") %>%filter(Condition=="Pa:Sa 10:1")%>% filter(max<101),"Pa in Pa:Sa 10:1 only")
+
+#This plots how much biomass is on each bin, it should be exponential in y-axis, but I don't think it is super useful
+plotHist3DBiomassBinBiomass<-function(df1, title, binSize){
+  ggplot()+
+    geom_point(data=df1,aes(x=max, y=suma, color = Strain, shape = Condition))+
+    scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    xlab('Bin size')+
+    ylab('Biomass (um^3)')+
+    ggtitle(paste0("Total Biomass per bin (bin size = ",binSize," um) ",title))+
+    facet_wrap(~TimePoint, nrow=4)
+}
+plotHist3DBiomassBinBiomass(allDataHistograms.100df %>% filter(Species == "Sa") %>% filter (Coculture=="No"), "Sa co-culture vs mono", "100")
+
+#This shows how much of the total biomass is on each bin. it should just go from 0 to one, so not a great idea to make it exponential.
+plotHist3DBiomassNormBinBiomass<-function(df1, title, binSize){
+  ggplot()+
+    geom_point(data=df1,aes(x=max, y=BiomassBin, color = Strain, shape = Sample))+
+    scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    xlab('Bin size')+
+    ylab('Contribution to total biomass')+
+    ggtitle(paste0("Biomass contribution per bin (bin size = ",binSize," um) ",title))+
+    facet_wrap(~TimePoint, nrow=4)
+}
+#binsize of 100
+plotHist3DBiomassNormBinBiomass(allDataHistograms.100df %>% filter(Species == "Sa") %>% filter (Coculture=="No"), "Sa mono culture", "100")
+plotHist3DBiomassNormBinBiomass(allDataHistograms.100df %>% filter(Species == "Pa") %>% filter (Coculture=="No"), "Pa mono culture", "100")
+
+plotHist3DBiomassNormBinBiomass<-function(df1, title, binSize){
+  ggplot()+
+    geom_point(data=df1,aes(x=max, y=BiomassBin, color = Strain, shape = Condition))+
+    scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    xlab('Bin size')+
+    ylab('Contribution to total biomass')+
+    ggtitle(paste0("Biomass contribution per bin (bin size = ",binSize," um) ",title))+
+    facet_wrap(~TimePoint, nrow=4)
+}
+plotHist3DBiomassNormBinBiomass(allDataHistograms.100df %>% filter(Species == "Sa") %>% filter (Coculture=="Yes"), "Sa co-cultures", "100")
+plotHist3DBiomassNormBinBiomass(allDataHistograms.100df %>% filter(Species == "Pa") %>% filter (Coculture=="Yes"), "Pa co-cultures", "100")
+
+#binsize of 5
+plotHist3DBiomassNormBinBiomass(allDataHistograms.5df%>% filter(Species == "Sa") %>% filter (Coculture=="No")%>% filter(max<101), "Sa mono culture", "5")
+plotHist3DBiomassNormBinBiomass(allDataHistograms.5df%>% filter(Species == "Pa") %>% filter (Coculture=="No")%>% filter(max<101), "Pa mono culture", "5")
+
+```
