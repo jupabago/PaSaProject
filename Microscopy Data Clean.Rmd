@@ -441,43 +441,19 @@ allDataHistograms.50df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJEC
 allDataHistograms.100df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Histograms1/histograms100.csv',header=T)
 
 hist.100<-allDataHistograms.100df %>% filter(TimePoint== 5) %>% filter( Condition %in% c("Sa Mono", "Pa Mono", "Pa:Sa 1:1")) %>% mutate(ConditionNew = recode(Condition, "Sa Mono" = "Mono", "Pa Mono" = "Mono", "Pa:Sa 1:1" = "Co"))
-allDataHistograms.5df <- allDataHistograms.5df %>% filter(TimePoint== 5) %>% filter( Condition %in% c("Sa Mono", "Pa Mono", "Pa:Sa 1:1")) %>% mutate(ConditionNew = recode(Condition, "Sa Mono" = "Mono", "Pa Mono" = "Mono", "Pa:Sa 1:1" = "Co"))
+hist.5 <- allDataHistograms.5df %>% filter(TimePoint== 5) %>% filter( Condition %in% c("Sa Mono", "Pa Mono", "Pa:Sa 1:1")) %>% mutate(ConditionNew = recode(Condition, "Sa Mono" = "Mono", "Pa Mono" = "Mono", "Pa:Sa 1:1" = "Co"))
 
 #ok so I am going to try to do this...I can't do bar graphs because the width of the bars is too thin to be able to be seen by the viewer, so I am doing points
 #I also want to do mono and co pointing to opposite sides, but I haven't been able to do it with recode, so I'll manually do it.
-mono<- allDataHistograms.5df %>% filter(ConditionNew == "Mono") %>%  group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))
-co<- allDataHistograms.5df %>% filter(ConditionNew == "Co") %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))
+cleanHist.5<-hist.5 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))
+cleanHist.100<-hist.100 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))
+#However, one thing I want to try is to have different aggregate cutoffs... have 5 um bins up to 100um and then have the rest of the bins at 100 um3, so..
+only5Hist<- cleanHist.5 %>% filter (max<=100)
+only100Hist<- cleanHist.100 %>% filter (max>100)
+bin5and100Hist<-bind_rows(only5Hist,only100Hist)
 
-#this is still showing the bins per sample, so I want to add the bins on each sample
-ggplot()+
-  geom_point(data = both %>% filter(Species == "Sa"), aes(y = max,x = CombinedFrequency, color = ConditionNew),stat = "identity", width = .6)+
-  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-                              #coord_flip() +  # Flip axes
-                              theme(plot.title = element_text(hjust = .5), 
-                                    axis.ticks = element_blank()) +   # Centre plot title
-                              theme_cowplot()+
-    theme(plot.title = element_text(hjust = 0.5))  # Color palette
-
-ggplot()+
-  geom_point(data = both %>% filter(Species == "Sa"& ConditionNew=="Mono"), 
-                 aes(x = max, y= -1000-CombinedFrequency,color = ConditionNew), size = 2, alpha = 0.8)+
-  geom_point(data = both %>% filter(Species == "Sa"& ConditionNew=="Co"), 
-                 aes(x = max, y=1000+CombinedFrequency, color = ConditionNew), size = 2, alpha = 0.8)+
-  #geom_label(aes(x = max, y = 0, label = max), 
-#         inherit.aes = F,
-#         size = 3.5, label.padding = unit(0.0, "lines"), label.size = 0,
-#         label.r = unit(0.0, "lines"), fill = "#EFF2F4", alpha = 0.9, color = "#5D646F")+
-  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-  #scale_y_continuous(breaks = c(c(-2, -1.5, -1, -0.5, 0) + -0.3, c(0, 0.5, 1, 1.5, 2)+0.3),
-   #              labels = c("2", "1.5", "1", "0.5", "0", "0", "0.5", "1", "1.5", "2"))+
-  facet_wrap(~Strain, ncol = 2)+
-  coord_flip()+
-  theme_cowplot()+
-  theme(plot.title = element_text(hjust = 0.5))  # Color palette
-
-#######
-#testing negative exponential
-reverselog_trans <- function(base = exp(1)) {
+#function for negative log
+reverselog_trans <- function(base = exp(1)) {#dont know exactly how this works, but it does... 
     trans <- function(x) -log(x, base)
     inv <- function(x) base^(-x)
     trans_new(paste0("reverselog-", format(base)), trans, inv, 
@@ -485,11 +461,13 @@ reverselog_trans <- function(base = exp(1)) {
               domain = c(1e-100, Inf))
 }
 
+plotButterfly<-function (species, strain){
 monoPlot<-ggplot()+
-  geom_point(data = mono %>% filter(Species == "Sa"),aes(x = max, y= Frequency), size = 2, alpha = 0.8)+
+  geom_point(data = bin5and100Hist %>% filter(ConditionNew == "Mono"& Strain == strain & Species == species),
+             aes(x = max, y= Frequency), size = 2, shape = 1)+
   scale_y_continuous(trans=reverselog_trans(base=10),
                      labels=trans_format("log10", scales::math_format(10^.x)))+
-  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,5e5), position = "top")+
+  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e5), position = "top")+
   coord_flip()+
   xlab("")+
   ylab("Frequency")+
@@ -497,18 +475,58 @@ monoPlot<-ggplot()+
   theme(plot.title = element_text(hjust = 0.5))
 
 coPlot<-ggplot()+
-  geom_point(data = co %>% filter(Species == "Sa"),aes(x = max, y= Frequency), size = 2, alpha = 0.8)+
-  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,5e5))+
+  geom_point(data = bin5and100Hist %>% filter(ConditionNew == "Co"& Strain == strain & Species == species),
+             aes(x = max, y= Frequency),shape = 1, size = 2)+
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e4))+
+  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e5))+
   coord_flip()+
   xlab("")+
   ylab("Frequency")+
   theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5), axis.text.y=element_blank())
+
+plot_grid(monoPlot+ theme(plot.margin = unit(c(1, -1.1, 0, 0), "cm")),coPlot+ theme(plot.margin = unit(c(1, 2, 0, 0), "cm")), align='vh', axis = "l",labels = c("Mono-culture", "Co-culture"),hjust = c(-1, -1.8),nrow = 1)
+}
+plotButterfly("Sa", "PA14wt")
+plotButterfly("Sa", "PA14mut")
+plotButterfly("Pa", "PA14wt")
+plotButterfly("Pa", "PA14mut")
+
+#showed this to Dan, and he didnt like them =( so I'll just do them the boring old way)
+plotNonButterfly<-function (species, strain){
+monoPlot<-ggplot()+
+  geom_point(data = bin5and100Hist %>% filter(ConditionNew == "Mono"& Strain == strain & Species == species),
+             aes(x = max, y= Frequency), size = 2, shape = 1)+
+  #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e4))+
+  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000), labels = c("1", "10", "100", "1,000", "10,000"),limits = c(1e0,2e4))+
+  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e5))+
+  coord_flip()+
+  labs(y = "Frequency",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
+  theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5))
 
+coPlot<-ggplot()+
+  geom_point(data = bin5and100Hist %>% filter(ConditionNew == "Co"& Strain == strain & Species == species),
+             aes(x = max, y= Frequency),shape = 1, size = 2)+
+  #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e4))+
+  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000), labels = c("1", "10", "100", "1,000", "10,000"),limits = c(1e0,2e4))+
+  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e5))+
+  coord_flip()+
+  labs(y = "Frequency",x = "")+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot_grid(monoPlot+ theme(plot.margin = unit(c(1, 0, 0, 0), "cm")),coPlot+ theme(plot.margin = unit(c(1, 1, 0, 0), "cm")), align='vh', axis = "l",labels = c("Mono-culture", "Co-culture"),hjust = c(-1.4, -1.9),nrow = 1)
+}
+plotNonButterfly("Sa", "PA14wt")
+plotNonButterfly("Sa", "PA14mut")
+plotNonButterfly("Pa", "PA14wt")
+plotNonButterfly("Pa", "PA14mut")
 
 ########
+```
 
+```{r extra stuff}
 plotHist3DBiomassCountsLog<-function(df1, title){
   ggplot()+
     geom_point(data=df1,aes(y=max, x=frequency, color = ConditionNew, shape = Strain))+
@@ -524,11 +542,9 @@ plotHist3DBiomassCountsLog<-function(df1, title){
 
 
 #This shows that the Sa biomass that gets eaten by Staph is from the largest aggregates, not from the small ones
-plotHist3DBiomassCountsLog(allDataHistograms.100df %>% filter(Species == "Sa"), "Sa co-culture vs mono")
-plotHist3DBiomassCountsLog(allDataHistograms.100df %>% filter(Species == "Pa"), "Pa co-culture vs mono")
-plotHist3DBiomassCountsLog(allDataHistograms.5df %>% filter(Species == "Sa"), "Sa co-culture vs mono")
-
-
+plotHist3DBiomassCountsLog(hist.100 %>% filter(Species == "Sa"), "Sa co-culture vs mono")
+plotHist3DBiomassCountsLog(hist.100 %>% filter(Species == "Pa"), "Pa co-culture vs mono")
+plotHist3DBiomassCountsLog(hist.5 %>% filter(Species == "Sa"), "Sa co-culture vs mono")
 
 plotHist3DBiomassCounts<-function(df1, title){
   ggplot()+
