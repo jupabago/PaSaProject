@@ -62,7 +62,7 @@ GetResults<-function(sample, samplename){#points to folder with files. Folder is
     #}
   growthDf<-growthDf %>% mutate(Sample = samplename)
 return(growthDf)
-}
+} 
 MapResults<- function(listSamples, reps){
   blah <-deparse(substitute(listSamples))
   mappedData<-map2(listSamples, reps, GetResults)
@@ -147,14 +147,14 @@ ggplot()+#plotting the absolute difference between strains only
 ```
 #Reading aggregate data
 ```{r new threshold images aggregates functions and data collection}
-ReadAggregateFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab
-  datos <-read.csv(file, header = TRUE)
+ReadAggregateFile<-function(file, position, timepoint){#This function outputs total number of pixels in the csv file from matlab 
+  datos <-read.csv(file, header = TRUE) 
   colnames(datos)<-c('Size', 'Species')
   datos<-datos %>% mutate(Position = position)
   datos<-datos %>% mutate(TimePoint = timepoint)
   return(datos)
 }
-
+ 
 #!!! two versions of the following function, one is for red subtract and the other one for the rest.
 GetAggregates<-function(sample, samplename){#iterate through files in folder
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Other Data1/', sample, '/aggregateSizes1')
@@ -323,10 +323,11 @@ aggregatesDataTime5wtStats<-aggregatesDataTime5wt %>% group_by (Species,Conditio
             MeanBiomass = mean(biomass),SEBiomass = std.error(biomass), 
             MeanAggSize = mean(meanAggSize), SEAggSize = std.error(meanAggSize))
 ```
-
+#Mean Agregate size figure
 ```{r aggregate mean volume final figures}
 #final figures potentially for paper
-ggplot()+
+
+MeanAggSizeWtPlot<-ggplot()+
   geom_jitter(data = aggregatesDataTime5wt, aes(x = ConditionNew, y= meanAggSize), size = 1, height = 0, width = .3, shape = 1)+
   geom_point(data = aggregatesDataTime5wtStats, aes(x = ConditionNew, y= MeanAggSize), size = 3, shape = 16)+
   geom_errorbar(data = aggregatesDataTime5wtStats, aes(x = ConditionNew, ymin= MeanAggSize-SEAggSize,ymax= MeanAggSize+SEAggSize), width = .5)+
@@ -337,7 +338,7 @@ ggplot()+
   theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5))
 
-ggplot()+
+MeanAggSizeMutPlot<-ggplot()+
   geom_jitter(data = aggregatesDataTime5mut, aes(x = ConditionNew, y= meanAggSize), size = 1, height = 0, width = .3, shape = 1)+
   geom_point(data = aggregatesDataTime5mutStats, aes(x = ConditionNew, y= MeanAggSize), size = 3, shape = 16)+
   geom_errorbar(data = aggregatesDataTime5mutStats, aes(x = ConditionNew, ymin= MeanAggSize-SEAggSize,ymax= MeanAggSize+SEAggSize), width = .5)+
@@ -371,7 +372,6 @@ ggplot()+
   ggtitle("Total biomass")+
   labs(x = "Time (hours)",y = "Total biomass")
 ```
-
 
 #Aggregate histograms
 ```{r Aggregate histograms functions}
@@ -495,7 +495,7 @@ plotButterfly("Pa", "PA14mut")
 #showed this to Dan, and he didnt like them =( so I'll just do them the boring old way)
 plotNonButterfly<-function (species, strain){
 monoPlot<-ggplot()+
-  geom_point(data = bin5and100Hist %>% filter(ConditionNew == "Mono"& Strain == strain & Species == species),
+  geom_point(data = cleanHist.5 %>% filter(ConditionNew == "Mono"& Strain == strain & Species == species),
              aes(x = max, y= Frequency), size = 2, shape = 1)+
   #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e4))+
   scale_y_log10(breaks = c(1, 10, 100, 1000, 10000), labels = c("1", "10", "100", "1,000", "10,000"),limits = c(1e0,2e4))+
@@ -506,7 +506,7 @@ monoPlot<-ggplot()+
   theme(plot.title = element_text(hjust = 0.5))
 
 coPlot<-ggplot()+
-  geom_point(data = bin5and100Hist %>% filter(ConditionNew == "Co"& Strain == strain & Species == species),
+  geom_point(data = cleanHist.5 %>% filter(ConditionNew == "Co"& Strain == strain & Species == species),
              aes(x = max, y= Frequency),shape = 1, size = 2)+
   #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e4))+
   scale_y_log10(breaks = c(1, 10, 100, 1000, 10000), labels = c("1", "10", "100", "1,000", "10,000"),limits = c(1e0,2e4))+
@@ -522,8 +522,6 @@ plotNonButterfly("Sa", "PA14wt")
 plotNonButterfly("Sa", "PA14mut")
 plotNonButterfly("Pa", "PA14wt")
 plotNonButterfly("Pa", "PA14mut")
-
-########
 ```
 
 ```{r extra stuff}
@@ -608,5 +606,115 @@ plotHist3DBiomassNormBinBiomass(allDataHistograms.100df %>% filter(Species == "P
 #binsize of 5
 plotHist3DBiomassNormBinBiomass(allDataHistograms.5df%>% filter(Species == "Sa") %>% filter (Coculture=="No")%>% filter(max<101), "Sa mono culture", "5")
 plotHist3DBiomassNormBinBiomass(allDataHistograms.5df%>% filter(Species == "Pa") %>% filter (Coculture=="No")%>% filter(max<101), "Pa mono culture", "5")
+
+```
+#Mixed Aggregates Analysis
+```{r mixed aggregates import data} 
+ReadMixedAggregateFile<-function(sample, imageSource){#This function outputs total number of pixels in the csv file from matlab
+  file<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/MixedAggregates/', sample,imageSource, '.csv')
+  datos <-read.csv(file, header = TRUE)
+  colnames(datos)<-c('Size', 'Sa', 'Pa', 'Overlap', 'Slice')
+  datos<-datos %>% mutate(Sample = sample)
+  return(datos)
+}
+testReadMixedAggregateFile<-ReadMixedAggregateFile('5-8-19','RedSubtract')
+PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
+#wt data retrieval
+mixedAggDataWtList<-map2(PA14wt,'RedSubtract', ReadMixedAggregateFile) 
+mixedAggDataWt<-bind_rows(mixedAggDataWtList)
+mixedAggDataWt<-mixedAggDataWt %>% mutate(Strain = "PA14wt")
+#mut data retrieval
+mixedAggDataMutList<-map2(PA14mut,'RedSubtract',ReadMixedAggregateFile) 
+mixedAggDataMut<-bind_rows(mixedAggDataMutList)
+mixedAggDataMut<-mixedAggDataMut %>% mutate(Strain = "PA14mut")
+
+#This is the data for all objects
+mixedAggDataAll<-bind_rows(mixedAggDataWt,mixedAggDataMut)
+
+#this is only the biomass, which is the only thing I can actually compare since this is 2D
+mixedAggDataAllSlim<-mixedAggDataAll%>% group_by(Sample, Strain) %>%
+  summarise (Aggregates = n(), PaBiomass = sum(Pa), SaBiomass = sum(Sa), TotalBiomass = sum(Size)) 
+
+#this includes all the other maybe relevant data
+mixedAggDataAllStats<-mixedAggDataAll%>% group_by(Sample, Strain) %>%
+  summarise (Aggregates = n(), PaBiomass = sum(Pa), SaBiomass = sum(Sa), TotalBiomass = sum(Size)) %>% mutate(MeanSizeSample =Aggregates/TotalBiomass) %>%
+  ungroup() %>% group_by(Strain) %>% 
+  mutate(PaBiomassStrain = sum(PaBiomass), SaBiomassStrain = sum(SaBiomass), TotalBiomassStrain = sum(TotalBiomass), AggregatesStrain = sum(Aggregates)) %>% mutate(MeanSizeStrain = AggregatesStrain/TotalBiomassStrain, Source = "All")
+
+#This is the data for mixed-species aggregates only
+mixedAggDataDual<-mixedAggDataAll %>% filter(Sa > 0 & Pa >0) 
+
+#only biomass
+mixedAggDataDualSlim<-mixedAggDataDual %>% group_by(Sample, Strain) %>% summarise (AggregatesMixed = n(), PaBiomassMixed = sum(Pa), SaBiomassMixed = sum(Sa), TotalBiomassMixed = sum(Size))
+
+#Compare all objects to dual-species objects
+combinedMixedAggData<- bind_cols(mixedAggDataAllSlim, mixedAggDataDualSlim)
+combinedMixedAggData<-combinedMixedAggData %>% mutate(PercentAggs = AggregatesMixed/Aggregates, PercentPaBiomass =  PaBiomassMixed/PaBiomass*100, PercentSaBiomass =  SaBiomassMixed/SaBiomass*100, PercentTotalBiomass = TotalBiomassMixed/TotalBiomass*100) %>% group_by(Strain) %>% mutate(MeanAggs = mean (PercentAggs), MeanPaBiomass = mean(PercentPaBiomass), MeanSaBiomass = mean(PercentSaBiomass), MeanTotalBiomass = mean(PercentTotalBiomass), SETotalBiomass = std.error(PercentTotalBiomass))
+
+combinedMixedAggData$Strain <- factor(combinedMixedAggData$Strain, levels = c("PA14wt", "PA14mut"))
+### I think this is the final figure
+MixedAggregatePlot<-ggplot()+
+  geom_point(data = combinedMixedAggData,aes(x=Strain,y=PercentTotalBiomass ),size=1)+
+  geom_point(data = combinedMixedAggData,aes(x=Strain,y=MeanTotalBiomass, shape = Strain),size=3)+
+  geom_errorbar(data = combinedMixedAggData,aes(x=Strain,ymin=MeanTotalBiomass-SETotalBiomass, ymax =MeanTotalBiomass+SETotalBiomass),size=.2, width = .2)+
+  #labs(title ="Proportion of mixed species biomass")+
+  #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  scale_shape_manual(values = c(1,2),name = "", limits=c("PA14wt","PA14mut"))+
+  scale_x_discrete(breaks=c("PA14wt","PA14mut"), 
+                     labels = c(bquote(paste(" wild-type")),
+                                bquote(paste(italic(Delta*"pqsL")))))+
+  labs(y = "Percent mixed aggregates biomass", x = "")+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5),legend.position="none")
+
+#this includes all the other maybe relevant data but for dual-species aggregates only
+mixedAggDataDualStats<-mixedAggDataDual %>% group_by(Sample, Strain) %>%
+  summarise (Aggregates = n(), PaBiomass = sum(Pa), SaBiomass = sum(Sa), TotalBiomass = sum(Size)) %>% mutate(MeanSizeSample =Aggregates/TotalBiomass) %>%
+  ungroup() %>% group_by(Strain) %>% 
+  mutate(PaBiomassStrain = sum(PaBiomass), SaBiomassStrain = sum(SaBiomass), TotalBiomassStrain = sum(TotalBiomass), AggregatesStrain = sum(Aggregates)) %>% mutate(MeanSizeStrain = AggregatesStrain/TotalBiomassStrain, Source = "Mixed")
+
+```
+# Combining all Spatial Data
+
+```{r final figure}
+#So, I need the mean aggregate size figure first
+MeanAggSizeWtPlot
+MeanAggSizeMutPlot
+
+plotNonButterfly("Sa", "PA14wt")
+plotNonButterfly("Sa", "PA14mut")
+plotNonButterfly("Pa", "PA14wt")
+plotNonButterfly("Pa", "PA14mut")
+
+MixedAggregatePlot
+
+#Enrichment plot
+sa.paPlot<-ggplot()+
+  geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),aes(y=meanEnrichment, x = Strain, shape = Strain),size=4)+
+  geom_errorbar(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),
+                aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = .1)+
+  labs( y = bquote(paste("Distance ("*mu*"m)")), x = "" ) +
+  scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
+  scale_x_discrete(name ="", breaks = c("wt","mut"), labels =c("wild-type",expression(""*Delta*"pqsL")))+
+  ylim(1, 9)+
+  theme_cowplot()
+
+sa.saPlot<-ggplot()+
+  geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Sa"),aes(y=meanEnrichment, x = Strain, shape = Strain),size=4)+
+  geom_errorbar(data = enrichmentDataFinal %>% filter(Relation == "Sa->Sa"),
+                aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = .1)+
+  labs( y = bquote(paste("Distance ("*mu*"m)")), x = "" ) +
+  scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
+  scale_x_discrete(name ="", breaks = c("wt","mut"), labels =c("wild-type",expression(""*Delta*"pqsL")))+
+  ylim(1, 9)+
+  theme_cowplot()
+
+legendFigure3 <- get_legend(sa.saPlot + theme(legend.box.margin = margin(0, 0, 0, -10)))
+figure3 <- plot_grid(sa.saPlot+theme(legend.position="none"),sa.paPlot+theme(legend.position="none"),
+                      align='vh',labels = c("B", "C"),hjust = -1,nrow = 1)
+plot_grid(figure3,legendFigure3,rel_widths = c(4, 1.7))
+#plot_grid(sa.saPlot,sa.paPlot,align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
 
 ```
