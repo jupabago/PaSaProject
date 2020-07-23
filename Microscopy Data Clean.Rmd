@@ -493,35 +493,38 @@ plotButterfly("Pa", "PA14wt")
 plotButterfly("Pa", "PA14mut")
 
 #showed this to Dan, and he didnt like them =( so I'll just do them the boring old way)
-plotNonButterfly<-function (species, strain){
+plotNonButterfly<-function (df,species, strain){
 monoPlot<-ggplot()+
-  geom_point(data = cleanHist.5 %>% filter(ConditionNew == "Mono"& Strain == strain & Species == species),
+  geom_point(data = df %>% filter(ConditionNew == "Mono"& Strain == strain & Species == species),
              aes(x = max, y= Frequency), size = 2, shape = 1)+
   #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e4))+
   scale_y_log10(breaks = c(1, 10, 100, 1000, 10000), labels = c("1", "10", "100", "1,000", "10,000"),limits = c(1e0,2e4))+
   scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e5))+
-  coord_flip()+
   labs(y = "Frequency",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
   theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5))
 
 coPlot<-ggplot()+
-  geom_point(data = cleanHist.5 %>% filter(ConditionNew == "Co"& Strain == strain & Species == species),
+  geom_point(data = df %>% filter(ConditionNew == "Co"& Strain == strain & Species == species),
              aes(x = max, y= Frequency),shape = 1, size = 2)+
   #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e4))+
   scale_y_log10(breaks = c(1, 10, 100, 1000, 10000), labels = c("1", "10", "100", "1,000", "10,000"),limits = c(1e0,2e4))+
   scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(1e0,2e5))+
-  coord_flip()+
-  labs(y = "Frequency",x = "")+
+  labs(y = "",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
   theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5))
 
 plot_grid(monoPlot+ theme(plot.margin = unit(c(1, 0, 0, 0), "cm")),coPlot+ theme(plot.margin = unit(c(1, 1, 0, 0), "cm")), align='vh', axis = "l",labels = c("Mono-culture", "Co-culture"),hjust = c(-1.4, -1.9),nrow = 1)
 }
-plotNonButterfly("Sa", "PA14wt")
-plotNonButterfly("Sa", "PA14mut")
-plotNonButterfly("Pa", "PA14wt")
-plotNonButterfly("Pa", "PA14mut")
+plotNonButterfly(only5Hist,"Sa", "PA14wt")
+plotNonButterfly(only5Hist,"Sa", "PA14mut")
+plotNonButterfly(only5Hist,"Pa", "PA14wt")
+plotNonButterfly(only5Hist, "Pa", "PA14mut")
+
+plotNonButterfly(bin5and100Hist,"Sa", "PA14wt")
+plotNonButterfly(bin5and100Hist,"Sa", "PA14mut")
+plotNonButterfly(bin5and100Hist,"Pa", "PA14wt")
+plotNonButterfly(bin5and100Hist, "Pa", "PA14mut")
 ```
 
 ```{r extra stuff}
