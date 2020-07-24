@@ -377,12 +377,12 @@ ggplot()+
 ```{r Aggregate histograms functions}
 FancyHistogram<-function(df, sec){#my own way of doing histograms which includes the sum and mean of values whitin each bin
   results<-data.frame()
-  for( i in 1:(length(sec)-1)){
-    df %>% filter(Size > sec[i] &Size<=sec[i+1])%>%summarise(frequency = n(), avg = mean(Size),suma = sum(Size)) %>% mutate(bin = i, min = sec[i],max = sec[i+1])->blah 
-    if(blah$frequency>0){
-    results<-rbind(results, blah)}
+  for( i in 1:(length(sec)-1)){ 
+    df %>% filter(Size > sec[i] &Size<=sec[i+1])%>%summarise(frequency = n(), avg = mean(Size),suma = sum(Size)) %>% mutate(bin = i, min = sec[i],max = sec[i+1])->blah
+    if(blah$frequency>0){ 
+    results<-rbind(results, blah)} 
   }
-  return(results)
+  return(results) 
   }
 TotalFancyHistogram<-function(df,binsize){
   totalbiomass<-sum(df$Size)#total biomass per sample
@@ -434,7 +434,7 @@ write.csv(allDataHistograms.50df,file = '/Users/jupabago/Documents/Whiteley/PROJ
 write.csv(allDataHistograms.100df,file = '/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Histograms1/histograms100.csv')
 ```
 
-```{r histogram plots data}
+```{r Aggregate histograms plots}
 allDataHistograms.5df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Histograms1/histograms5.csv',header=T)
 allDataHistograms.10df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Histograms1/histograms10.csv',header=T)
 allDataHistograms.50df<-read.csv(file='/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Histograms1/histograms50.csv',header=T)
@@ -445,7 +445,7 @@ hist.5 <- allDataHistograms.5df %>% filter(TimePoint== 5) %>% filter( Condition 
 
 #ok so I am going to try to do this...I can't do bar graphs because the width of the bars is too thin to be able to be seen by the viewer, so I am doing points
 #I also want to do mono and co pointing to opposite sides, but I haven't been able to do it with recode, so I'll manually do it.
-cleanHist.5<-hist.5 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))
+cleanHist.5<-hist.5 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))#Combine aggregates from all 3 samples
 cleanHist.100<-hist.100 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))
 #However, one thing I want to try is to have different aggregate cutoffs... have 5 um bins up to 100um and then have the rest of the bins at 100 um3, so..
 only5Hist<- cleanHist.5 %>% filter (max<=100)
@@ -526,6 +526,87 @@ plotNonButterfly(bin5and100Hist,"Sa", "PA14mut")
 plotNonButterfly(bin5and100Hist,"Pa", "PA14wt")
 plotNonButterfly(bin5and100Hist, "Pa", "PA14mut")
 ```
+```{r Aggregate histograms planktonic vs aggregte}
+hist.plank.Agg<-hist.5 %>%  group_by(Species, Sample,Condition,Strain)%>% 
+  mutate(Aggregation = case_when(max == 5 ~ "Planktonic",
+                        max>5 ~ "Aggregate")) %>% ungroup() %>% 
+  group_by(Species,Sample,Condition,Strain,Aggregation) %>% mutate(FrequencyAggregation = sum(frequency), BiomassAggregation = sum(BiomassBin), DensityAggregation = sum(Density))
+hist.plank.Agg.Stats<-hist.plank.Agg %>% group_by(Species,Condition, ConditionNew,Strain,Aggregation) %>%
+  summarise(MeanFreq = mean(FrequencyAggregation), SEFreq = std.error(FrequencyAggregation), MeanBiomass = mean(BiomassAggregation), SEBiomass = std.error(BiomassAggregation))
+
+PlotAggsPlank<- function(strain, titulo){
+ggplot()+
+  geom_col(data = hist.plank.Agg.Stats %>% filter(Strain == strain),aes(x=ConditionNew,y=MeanBiomass, fill = Aggregation),size=3,position = position_dodge( width = .9))+
+  geom_errorbar(data = hist.plank.Agg.Stats%>% filter(Strain == strain),aes(x=ConditionNew,ymin=MeanBiomass-SEBiomass, ymax = MeanBiomass+SEBiomass),size=.5,position = position_dodge2( width = .6))+
+  facet_grid(.~Species)+
+  labs(title = titulo, x = "", y = "Biomass contribution")+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+}
+PlotAggsPlank("PA14wt", "wt")
+PlotAggsPlank("PA14wt", "pqsL")
+
+```
+```{r Aggregate histograms logarithmic bins}
+#Now I need to do histograms with bins in a log scale, but for this I want to use the raw data that includes biomass per bin and density.
+#let's start by revisiting the original data set and just filter one sample to simplify things:
+hist.5.rep1<-hist.5 %>% filter(Sample == "rep1"&Condition == "Pa Mono"&Strain=="PA14mut")
+hist.5.rep1.logBins<-hist.5.rep1 %>% 
+  mutate(LogBin = case_when(max <= 10 ~ 10,
+                        max<= 100    ~ 100,
+                        max<= 1000   ~ 1000,
+                        max<= 10000  ~ 10000,
+                        max<= 100000 ~ 100000,
+                        max > 100000 ~ 1000000)) %>% 
+  group_by(LogBin) %>% mutate(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density))
+#Now this is the real case
+hist.5.LogBin<-hist.5 %>%  group_by(Species, Sample,Condition,Strain)%>% 
+  mutate(LogBin = case_when(max <= 10 ~ 10,
+                        max<= 100    ~ 100,
+                        max<= 1000   ~ 1000,
+                        max<= 10000  ~ 10000,
+                        max<= 100000 ~ 100000,
+                        max > 100000 ~ 1000000)) %>% ungroup() %>% 
+  group_by(Species, Sample,Condition,Strain,LogBin) %>% mutate(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density))
+
+#this is easier to put in bar graphs
+hist.5.LogBinSummarize<-hist.5 %>%  group_by(Sample,Species,Condition,Strain)%>% 
+  mutate(LogBin = case_when(max <= 10 ~ 10,
+                        max<= 100    ~ 100,
+                        max<= 1000   ~ 1000,
+                        max<= 10000  ~ 10000,
+                        max<= 100000 ~ 100000,
+                        max > 100000 ~ 1000000)) %>% ungroup() %>% 
+  group_by(Species, Sample,Condition,ConditionNew,Strain,LogBin) %>% summarise(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density))
+
+
+#Now separate them by strain, since I am doing that anyways
+hist.LogBin.wt <-hist.5.LogBin %>% filter(Strain == "PA14wt")
+hist.LogBin.mut<-hist.5.LogBin %>% filter(Strain == "PA14mut")
+PlotFreqLogBin<-function(strain, species,titulo){
+  df <-hist.5.LogBinSummarize%>% filter(Strain == strain & Species == species)
+  ggplot()+
+    geom_col(data = df,aes(x=as.factor(LogBin),y=FrequencyLogBin,  fill =Sample ),size=4)+
+    #geom_point(data = df,aes(x=as.factor(LogBin),y=FrequencyLogBin,  shape =Sample ),size=4)+
+    geom_label(data = df %>% filter(Sample == "rep1"),aes(x=as.factor(LogBin),y=1, label =round(BiomassLogBin*100,digits=1), color = "rep1"),size=4)+
+    geom_label(data = df%>% filter(Sample == "rep2"),aes(x=as.factor(LogBin),y=.325, label =round(BiomassLogBin[Sample=="rep2"]*100,digits=1), color = "rep2"),size=4)+
+    geom_label(data = df%>% filter(Sample == "rep3"),aes(x=as.factor(LogBin),y=.1, label =round(BiomassLogBin[Sample=="rep3"]*100,digits=1), color = "rep3"),size=4)+
+    labs(title = titulo)+
+    scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    #scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    facet_grid(.~ConditionNew)+
+    labs(y = "Frequency",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
+    guides(color = FALSE)+
+    theme_cowplot()+
+    theme(plot.title = element_text(hjust = 0.5))
+}
+PlotFreqLogBin("PA14wt", "Sa", "Sa WT")
+PlotFreqLogBin("PA14wt", "Pa", "Pa WT")
+PlotFreqLogBin("PA14mut", "Sa", "Sa pqsL")
+PlotFreqLogBin("PA14mut", "Pa", "Pa pqsL")
+
+```
+
 
 ```{r extra stuff}
 plotHist3DBiomassCountsLog<-function(df1, title){
