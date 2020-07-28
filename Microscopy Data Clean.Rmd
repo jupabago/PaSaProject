@@ -527,12 +527,47 @@ plotNonButterfly(bin5and100Hist,"Pa", "PA14wt")
 plotNonButterfly(bin5and100Hist, "Pa", "PA14mut")
 ```
 ```{r Aggregate histograms planktonic vs aggregte}
-hist.plank.Agg<-hist.5 %>%  group_by(Species, Sample,Condition,Strain)%>% 
+
+#this is the summary beacuse I dont like further analyzing data after summarizing shit, so mutate at the top follows 
+hist.plank.Agg.Sumary<-hist.5 %>%  group_by(Species, Sample,Condition,Strain)%>% 
   mutate(Aggregation = case_when(max == 5 ~ "Planktonic",
                         max>5 ~ "Aggregate")) %>% ungroup() %>% 
-  group_by(Species,Sample,Condition,Strain,Aggregation) %>% mutate(FrequencyAggregation = sum(frequency), BiomassAggregation = sum(BiomassBin), DensityAggregation = sum(Density))
-hist.plank.Agg.Stats<-hist.plank.Agg %>% group_by(Species,Condition, ConditionNew,Strain,Aggregation) %>%
+  group_by(Species,Sample,Condition,ConditionNew, Strain,Aggregation) %>% summarize(FrequencyAggregation = sum(frequency), BiomassAggregation = sum(BiomassBin), DensityAggregation = sum(Density))
+#now I have to do some t-tests, since I used the same cultures for mono and co for each replicate, paired t-tests are allowed.
+##### 
+#I know this sucks, but it's 1 AM so idgaf
+SaMonoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Sa Mono", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+SaCoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+SaWtAggTest<-t.test(x = SaMonoWtAggSum, y = SaCoWtAggSum, paired = T)
+SaMonoMutAggSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Sa Mono", Strain == "PA14mut",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+SaCoMutAggSum<-hist.plank.Agg.Sumary %>%filter(Species == "Sa", ConditionNew == "Co", Strain == "PA14mut",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+SaMutAggTest<-t.test(x = SaMonoMutAggSum, y = SaCoMutAggSum, paired = T)
+
+PaMonoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Pa Mono", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+PaCoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Species == "Pa", ConditionNew == "Co", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+PaWtAggTest<-t.test(x = PaMonoWtAggSum, y = PaCoWtAggSum, paired = T)
+PaMonoMutAggSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Pa Mono", Strain == "PA14mut",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+PaCoMutAggSum<-hist.plank.Agg.Sumary %>%filter(Species == "Pa", ConditionNew == "Co", Strain == "PA14mut",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+PaMutAggTest<-t.test(x = PaMonoMutAggSum, y = PaCoMutAggSum, paired = T)
+
+SaMonoWtVsMutAggTest<-t.test(x = SaMonoWtAggSum, y = SaMonoMutAggSum, paired = F)
+SaCoWtVsMutAggTest<-t.test(x = SaCoWtAggSum, y = SaCoMutAggSum, paired = F)
+PaMonoWtVsMutAggTest<-t.test(x = PaMonoWtAggSum, y = PaMonoMutAggSum, paired = F)
+PaCoWtVsMutAggTest<-t.test(x = PaCoWtAggSum, y = PaCoMutAggSum, paired = F)
+
+tTestDataAggvsPlank<-list(SaWtAggTest, SaMutAggTest, PaWtAggTest,PaMutAggTest,SaMonoWtVsMutAggTest,SaCoWtVsMutAggTest,PaMonoWtVsMutAggTest,PaCoWtVsMutAggTest)
+TtestTable<-name <- function(dataPoint) {
+  data <-data.frame(dataPoint$data.name, dataPoint$p.value)
+}
+tTestDataTable<-bind_rows(map(tTestDataAggvsPlank, TtestTable))
+#so, it turns out I only had to do either agg or plank since the variance is the same. COOL...
+
+#####
+#this is using mutate which is the same as above
+
+hist.plank.Agg.Stats<-hist.plank.Agg.Sumary %>% group_by(Species,Condition, ConditionNew,Strain,Aggregation) %>%
   summarise(MeanFreq = mean(FrequencyAggregation), SEFreq = std.error(FrequencyAggregation), MeanBiomass = mean(BiomassAggregation), SEBiomass = std.error(BiomassAggregation))
+
 
 PlotAggsPlank<- function(strain, titulo){
 ggplot()+
@@ -544,7 +579,7 @@ ggplot()+
   theme(plot.title = element_text(hjust = 0.5))
 }
 PlotAggsPlank("PA14wt", "wt")
-PlotAggsPlank("PA14wt", "pqsL")
+PlotAggsPlank("PA14mut", "pqsL")
 
 ```
 ```{r Aggregate histograms logarithmic bins}
@@ -570,7 +605,7 @@ hist.5.LogBin<-hist.5 %>%  group_by(Species, Sample,Condition,Strain)%>%
   group_by(Species, Sample,Condition,Strain,LogBin) %>% mutate(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density))
 
 #this is easier to put in bar graphs
-hist.5.LogBinSummarize<-hist.5 %>%  group_by(Sample,Species,Condition,Strain)%>% 
+hist.5.LogBinSummarize<-hist.5 %>% filter(!max == 5)%>%  group_by(Sample,Species,Condition,Strain)%>% 
   mutate(LogBin = case_when(max <= 10 ~ 10,
                         max<= 100    ~ 100,
                         max<= 1000   ~ 1000,
@@ -579,10 +614,6 @@ hist.5.LogBinSummarize<-hist.5 %>%  group_by(Sample,Species,Condition,Strain)%>%
                         max > 100000 ~ 1000000)) %>% ungroup() %>% 
   group_by(Species, Sample,Condition,ConditionNew,Strain,LogBin) %>% summarise(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density))
 
-
-#Now separate them by strain, since I am doing that anyways
-hist.LogBin.wt <-hist.5.LogBin %>% filter(Strain == "PA14wt")
-hist.LogBin.mut<-hist.5.LogBin %>% filter(Strain == "PA14mut")
 PlotFreqLogBin<-function(strain, species,titulo){
   df <-hist.5.LogBinSummarize%>% filter(Strain == strain & Species == species)
   ggplot()+

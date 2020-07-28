@@ -332,11 +332,6 @@ mut1.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaPr
 mut2.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/mut2-1000-1.csv"),header = T)
 mut3.1Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/mut3-1000-1.csv"),header = T)
 
-wt1.2Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/wt1-1000-2.csv"),header = T)
-wt2.2Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/wt2-1000-2.csv"),header = T)
-wt3.2Whole<-read.csv(paste0("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/PropOcDataAll/wt3-1000-2.csv"),header = T)
-
-
 ```
 
 ```{r Whole PropOc frequency functions }
@@ -414,6 +409,17 @@ PlotAllPropOcData <- function(df, timepoint, relation ) {
   ggsave(paste0(name),plot = plot, width = 17, height = 10)
 }
 
+ggplot()+ 
+    geom_point(data = wt1.1Whole.5log2 %>% filter (Source == "finalGG"),aes(x=Value,y=Frequency, color = Distance),size=2)+
+    scale_y_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    #scale_x_log10( breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    #labs(title =paste( relation, timepoint))+
+    #scale_color_viridis(option = "D")+
+    scale_color_gradientn(colours = rainbow(5))+
+    xlim(0,1)+
+    theme_cowplot()+
+    theme(plot.title = element_text(hjust = 0.5))
+
 PlotAllPropOcData(wt1.1Whole.5 %>% filter (Source == "finalGG"), 5, "Wt 1-1 PA->PA")
 PlotAllPropOcData(wt2.1Whole.5 %>% filter (Source == "finalGG"), 5, "Wt 2-1 PA->PA")
 PlotAllPropOcData(wt3.1Whole.5 %>% filter (Source == "finalGG"), 5, "Wt 3-1 PA->PA")
@@ -488,8 +494,6 @@ PlotAllPropOcDatalog(mut1.1Whole.5log %>% filter (Source == "finalGR"), 5, "Mut1
 PlotAllPropOcDatalog(mut2.1Whole.5log %>% filter (Source == "finalGR"), 5, "Mut2-1 PA->SA")
 PlotAllPropOcDatalog(mut3.1Whole.5log %>% filter (Source == "finalGR"), 5, "Mut3-1 PA->SA")
 
-
-
 ```
 
 ```{r Whole PropOc Data wrangling}
@@ -508,7 +512,7 @@ DensityCheck <- function(df) {
     group_by(Distance, Source) %>% select(Value, Distance,Density, Source) %>% 
     mutate(MaxDensity = max(Density)) %>% 
     mutate(DensityCh = ifelse(Density ==max(Density), 1, 0 )) %>% filter(DensityCh==1) %>% ungroup()#find max density, check where it matches
-  df.summary<-df.summary %>% group_by(Distance, Source) %>% mutate(DoubledValues = sum(DensityCh))#this is just to find which values were repeated
+  #df.summary<-df.summary %>% group_by(Distance, Source) %>% mutate(DoubledValues = sum(DensityCh))#this is just to find which values were repeated
   return(df.summary)
 }
 
@@ -520,7 +524,6 @@ allDensities<-bind_rows(namedMappedDensities)
 allDensities<-allDensities %>% ungroup() %>% 
   mutate(Strain = recode(allDensities$Sample, wt1.1="wt",wt2.1="wt",wt3.1="wt",mut1.1="mut",mut2.1="mut",mut3.1="mut"))
 return(allDensities)}
-
 
 histograms<- list(wt1.1Whole.5,wt2.1Whole.5,wt3.1Whole.5,mut1.1Whole.5,mut2.1Whole.5,mut3.1Whole.5)
 histogramslog<- list(wt1.1Whole.5log,wt2.1Whole.5log,wt3.1Whole.5log,mut1.1Whole.5log,mut2.1Whole.5log,mut3.1Whole.5log)
@@ -592,7 +595,6 @@ PlotPercentiles <- function(df) {
     theme(plot.title = element_text(hjust = 0.5))
   }
 
-
 allDeathCurvesLog2<-GetPercentiles(histogramslog2)
 #there are, I believe, at least 3 ways to find the 50 percentile. one of them is finidng the closest value, regardless of where it comes from, whether it is higher or lower than 50 percentile. The other two are either taking the closest to 50, either exclusively larger or exclusively smaller than that. That's why there are 3 ways of doing this here:
 
@@ -635,12 +637,13 @@ ggplot()+#linear
     theme_cowplot()+
     theme(plot.title = element_text(hjust = 0.5))
 
+allDeathCurvesLog2midAbsStats<-allDeathCurvesLog2midAbsStats%>% mutate(Relation = recode(Source, "finalGG" = "Pa->Pa","finalRG" = "Sa->Pa","finalRR" = "Sa->Sa","finalGR" = "Pa->Sa"))
 ggplot()+#log transform
-    geom_pointrange(data = allDeathCurvesLog2midAbsStats,aes(x = Distance,y=meanLogValue,ymax=meanLogValue+sdLogValue,ymin=meanLogValue-sdLogValue, color=Strain),size=.5)+
-    labs(title ="50 percentile Density (Log)")+
-    facet_wrap( ~ Source, ncol = 2)+
-    theme_cowplot()+
-    theme(plot.title = element_text(hjust = 0.5))
+  geom_pointrange(data = allDeathCurvesLog2midAbsStats,aes(x = Distance,y=meanLogValue,ymax=meanLogValue+sdLogValue,ymin=meanLogValue-sdLogValue, color=Strain),size=.5)+
+  facet_wrap( ~ Relation, ncol = 2)+
+  scale_color_grey(name = "Strain", labels = c( "HQNO-","Wild Type"))+  
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 #Enrichment (distance at highest proportional occupancy)
 ```{r Enrichment}
@@ -690,16 +693,66 @@ PlotDataEnrichmentEmphasis(allDeathCurvesLog2midAbs,allDeathCurvesLog2midAbsEnri
 #This looks a little better... now get the mean per condition
 allDeathCurvesLog2midAbsEnrichment2<-allDeathCurvesLog2midAbsEnrichment2 %>% group_by(Source, Sample) %>% mutate(EnrichmentDistance = mean(Distance)) %>% ungroup() %>% group_by(Source, Strain) %>% mutate(meanEnrichment = mean(EnrichmentDistance), sdEnrichment = sd(EnrichmentDistance))
 
+allDeathCurvesLog2midAbsEnrichment2<-allDeathCurvesLog2midAbsEnrichment2 %>% mutate(Relation = recode(Source, "finalGG" = "Pa->Pa","finalRG" = "Sa->Pa","finalRR" = "Sa->Sa","finalGR" = "Pa->Sa"))
+
+#this is the original figure I sent to Marvin
 ggplot()+
-    geom_point(data = allDeathCurvesLog2midAbsEnrichment2,aes(y=meanEnrichment, x = Strain, color = Strain),size=4)+
-    geom_errorbar(data = allDeathCurvesLog2midAbsEnrichment2,
-                  aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain, color = Strain),size=1)+
-    geom_jitter(data = allDeathCurvesLog2midAbsEnrichment2,aes(y=Distance, x = Strain, color = Strain, shape = Sample),size=2)+
-    labs(title ="50 percentile Enrichment by strain")+
-    facet_wrap( ~ Source, ncol = 2)+
-    #scale_color_gradientn(colours = rainbow(5))+
-    scale_shape_manual(values=c(0,1,2, 15,16,17))+
-    theme_cowplot()+
-    theme(plot.title = element_text(hjust = 0.5))
+  geom_point(data = allDeathCurvesLog2midAbsEnrichment2,aes(y=meanEnrichment, x = Strain, color = Strain),size=4)+
+  geom_errorbar(data = allDeathCurvesLog2midAbsEnrichment2,
+                aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain, color = Strain),size=1)+
+  geom_jitter(data = allDeathCurvesLog2midAbsEnrichment2,aes(y=Distance, x = Strain, color = Strain, shape = Sample),size=2)+
+  facet_wrap( ~ Relation, ncol = 2)+
+  scale_shape_manual(values=c(0,1,2, 15,16,17))+
+  guides(shape = FALSE)+
+  scale_color_grey(name = "Strain", labels = c("HQNO-","Wild Type"))+  
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+#Now I have to remove focus of Pa since there are too many of them
+enrichmentDataFinal<-allDeathCurvesLog2midAbsEnrichment2 %>% filter(Relation %in% c("Sa->Pa", "Sa->Sa"))
+enrichmentDataFinal$Strain <- factor(enrichmentDataFinal$Strain, levels = c("wt", "mut"))
+```
+
+```{r final figure for enrichment}
+sa.paPlot<-ggplot()+
+  geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),aes(y=meanEnrichment, x = Strain, shape = Strain),size=4)+
+  geom_errorbar(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),
+                aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = .1)+
+  labs( y = bquote(paste("Distance ("*mu*"m)")), x = "" ) +
+  scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
+  scale_x_discrete(name ="", breaks = c("wt","mut"), labels =c("wild-type",expression(""*Delta*"pqsL")))+
+  ylim(1, 9)+
+  theme_cowplot()
+
+sa.saPlot<-ggplot()+
+  geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Sa"),aes(y=meanEnrichment, x = Strain, shape = Strain),size=4)+
+  geom_errorbar(data = enrichmentDataFinal %>% filter(Relation == "Sa->Sa"),
+                aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = .1)+
+  labs( y = bquote(paste("Distance ("*mu*"m)")), x = "" ) +
+  scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
+  scale_x_discrete(name ="", breaks = c("wt","mut"), labels =c("wild-type",expression(""*Delta*"pqsL")))+
+  ylim(1, 9)+
+  theme_cowplot()
+
+legendFigure3 <- get_legend(sa.saPlot + theme(legend.box.margin = margin(0, 0, 0, -10)))
+figure3 <- plot_grid(sa.saPlot+theme(legend.position="none"),sa.paPlot+theme(legend.position="none"),
+                      align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
+plot_grid(figure3,legendFigure3,rel_widths = c(4, 1.7))
+#plot_grid(sa.saPlot,sa.paPlot,align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
+
+#p-value calculations
+pvalueEnrichmentGR<- allDeathCurvesLog2midAbsEnrichment2 %>% filter(Source == "finalGR") %>% filter(!Distance == 6.5)%>% filter(!Distance == 10.5)
+
+wtpvalueEnrichmentGR<-pvalueEnrichmentGR %>% filter(Strain=="wt")
+mutpvalueEnrichmentGR<-pvalueEnrichmentGR %>% filter(Strain=="mut")
+POTtest<-t.test(x = wtpvalueEnrichmentGR$EnrichmentDistance, y = mutpvalueEnrichmentGR$EnrichmentDistance, paired = T)
+POTtest
+
+pvalueEnrichmentRG<- allDeathCurvesLog2midAbsEnrichment2 %>% filter(Source == "finalRG") %>% filter(!Distance == 7.5)%>% filter(!Distance == 9.5) %>% filter(!Distance == 5.5) %>% filter(!Distance == 3.5) %>% ungroup() %>% slice(2:7)
+wtpvalueEnrichmentRG<-pvalueEnrichmentRG %>% filter(Strain=="wt")
+mutpvalueEnrichmentRG<-pvalueEnrichmentRG %>% filter(Strain=="mut")
+POGRTtest<-t.test(x = wtpvalueEnrichmentRG$EnrichmentDistance, y = mutpvalueEnrichmentRG$EnrichmentDistance, paired = T)
+POGRTtest
 
 ```

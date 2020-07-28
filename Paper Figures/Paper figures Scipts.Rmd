@@ -38,9 +38,9 @@ GraphGrowthCurveLog1<-function (rawData, statsData){
     shakingWtPlot<-ggplot()+
       geom_line(data=statsData%>% filter(condition == "Shaking" & strain == "wt"), aes(x=time, y=logCFUmean, linetype = bug), size=.5)+
       geom_errorbar(data=statsData%>% filter(condition == "Shaking" & strain == "wt"),aes(x = time, ymin = logCFUmean-logCFUse, ymax=logCFUmean+logCFUse), width = 0, size = 0.5)+
-      geom_hline(yintercept=9.619, color='gray', linetype = "solid") + #Pa stirred
-      geom_hline(yintercept=9.13, color='gray', linetype = "dashed") + #Sa stirred
-      scale_linetype_manual(values = c( "solid","dashed"), labels = c("P.aeruginosa","S. aureus"))+
+      geom_hline(yintercept=9.619, color='red', linetype = "solid") + #Pa stirred
+      geom_hline(yintercept=9.13, color='red', linetype = "dashed") + #Sa stirred
+      scale_linetype_manual(values = c( "solid","dashed"), labels = c(bquote(paste(italic('P. aeruginosa'))),bquote(paste(italic('S. aureus')))))+
       labs(x = "Time (hours)", y = expression(paste(Log[10], " CFU")), linetype = "Species")+
       scale_y_continuous(limits = c(4,10))+
       scale_x_continuous(breaks = c(4,8,12,16))+
@@ -50,8 +50,8 @@ GraphGrowthCurveLog1<-function (rawData, statsData){
       geom_line(data=statsData%>% filter(condition == "Static" & strain == "wt"), aes(x=time, y=logCFUmean, linetype = bug), size=.5)+
       geom_errorbar(data=statsData%>% filter(condition == "Static" & strain == "wt"),aes(x = time,ymin=logCFUmean-logCFUse, ymax = logCFUmean+logCFUse), width = 0, size = 0.5)+
       scale_linetype_manual(values = c( "solid","dashed"), labels = c("stirred","static"))+
-      geom_hline(yintercept=8.88, color='gray', linetype = "dashed") +
-      geom_hline(yintercept=9.07, color='gray', linetype = "solid") +
+      geom_hline(yintercept=8.88, color='red', linetype = "dashed") +
+      geom_hline(yintercept=9.07, color='red', linetype = "solid") +
       labs(x = "Time (hours)", y = expression(paste(Log[10], " CFU")), linetype = "")+
       scale_y_continuous(limits=c(4,10))+
       scale_x_continuous(breaks = c(4,8,12,16))+
@@ -59,7 +59,7 @@ GraphGrowthCurveLog1<-function (rawData, statsData){
     
     legend <- get_legend(shakingWtPlot + theme(legend.box.margin = margin(0, 0, 0, -10)))
     prow <- plot_grid(shakingWtPlot+theme(legend.position="none"),staticWtPlot+theme(legend.position="none"),
-                      align='vh',labels = c("Stirred", "Static"),hjust = c(-3, -3.8),nrow = 1)
+                      align='vh',labels = c("Mixed", "Static"),hjust = c(-3, -3.8),nrow = 1)
     plot_grid(prow,legend,rel_widths = c(3, .4))
     }
 #Graph logs
@@ -72,9 +72,9 @@ GraphGrowthCurveLog2<-function (rawData, statsData){
   shakingMutPlot<-ggplot()+
     geom_line(data=statsData%>% filter(condition == "Shaking" & strain ==  "mut"), aes(x=time, y=logCFUmean, linetype = bug), size=.5)+
     geom_errorbar(data=statsData%>% filter(condition == "Shaking" & strain == "mut"), aes(x = time, ymin = logCFUmean-logCFUse, ymax = logCFUmean+logCFUse), width = 0, size = 0.5)+
-    scale_linetype_manual(values = c( "solid","dashed"), labels = c("P.aeruginosa","S. aureus"))+
-    geom_hline(yintercept=9.13, color='gray', linetype = "dashed") +
-    geom_hline(yintercept=9.57, color='gray', linetype = "solid") +
+    scale_linetype_manual(values = c( "solid","dashed"), labels = c(bquote(paste(italic('P. aeruginosa'))),bquote(paste(italic('S. aureus')))))+
+    geom_hline(yintercept=9.13, color='red', linetype = "dashed") +
+    geom_hline(yintercept=9.57, color='red', linetype = "solid") +
     labs(x = "Time (hours)", y = expression(paste(Log[10], " CFU")), linetype = "Species")+
     scale_y_continuous(limits = c(4,10))+
     scale_x_continuous(breaks = c(4,8,12,16))+
@@ -83,16 +83,16 @@ GraphGrowthCurveLog2<-function (rawData, statsData){
   staticMutPlot<-ggplot()+
     geom_line(data=statsData%>% filter(condition == "Static" & strain == "mut"), aes(x=time, y=logCFUmean, linetype = bug), size=.5)+
     geom_errorbar(data=statsData%>% filter(condition == "Static" & strain ==  "mut"), aes(x = time, ymin = logCFUmean-logCFUse, ymax = logCFUmean+logCFUse), width = 0, size = 0.5)+
-    scale_linetype_manual(values = c( "solid","dashed"), labels = c("P.aeruginosa","S. aureus"))+
-    geom_hline(yintercept=8.88, color='gray', linetype = "dashed") +
-    geom_hline(yintercept=8.98, color='gray', linetype = "solid") +
+    scale_linetype_manual(values = c( "solid","dashed"), labels = c(bquote(paste(italic('P. aeruginosa'))),bquote(paste(italic('S. aureus')))))+
+    geom_hline(yintercept=8.88, color='red', linetype = "dashed") +
+    geom_hline(yintercept=8.98, color='red', linetype = "solid") +
     labs(x = "Time (hours)", y = expression(paste(Log[10], " CFU")), linetype = "")+
     scale_y_continuous(limits = c(4,10))+
     scale_x_continuous(breaks = c(4,8,12,16))+
     theme_cowplot(12)
   legend <- get_legend(shakingMutPlot + theme(legend.box.margin = margin(0, 0, 0, -10)))
   prow <- plot_grid(shakingMutPlot+theme(legend.position="none"),staticMutPlot+theme(legend.position="none"),
-                      align='vh',labels = c("Stirred", "Static"),hjust = c(-3, -3.8),nrow = 1)
+                      align='vh',labels = c("Mixed", "Static"),hjust = c(-3, -3.8),nrow = 1)
     plot_grid(prow,legend,rel_widths = c(3, .4))
 }
 
