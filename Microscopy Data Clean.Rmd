@@ -732,7 +732,7 @@ ReadMixedAggregateFile<-function(sample, imageSource){#This function outputs tot
   datos<-datos %>% mutate(Sample = sample)
   return(datos)
 }
-testReadMixedAggregateFile<-ReadMixedAggregateFile('5-8-19','RedSubtract')
+
 PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
 #wt data retrieval
 mixedAggDataWtList<-map2(PA14wt,'RedSubtract', ReadMixedAggregateFile) 
@@ -787,6 +787,12 @@ mixedAggDataDualStats<-mixedAggDataDual %>% group_by(Sample, Strain) %>%
   summarise (Aggregates = n(), PaBiomass = sum(Pa), SaBiomass = sum(Sa), TotalBiomass = sum(Size)) %>% mutate(MeanSizeSample =Aggregates/TotalBiomass) %>%
   ungroup() %>% group_by(Strain) %>% 
   mutate(PaBiomassStrain = sum(PaBiomass), SaBiomassStrain = sum(SaBiomass), TotalBiomassStrain = sum(TotalBiomass), AggregatesStrain = sum(Aggregates)) %>% mutate(MeanSizeStrain = AggregatesStrain/TotalBiomassStrain, Source = "Mixed")
+
+#T-tests
+
+tTestMixWt<-combinedMixedAggData %>% filter(Strain == "PA14wt") %>% pull(PercentTotalBiomass)
+tTestMixMut<-combinedMixedAggData %>% filter(Strain == "PA14mut") %>% pull(PercentTotalBiomass)
+tTestMixAggs<-t.test(x = tTestMixWt, y = tTestMixMut, paired = F)
 
 ```
 # Combining all Spatial Data
