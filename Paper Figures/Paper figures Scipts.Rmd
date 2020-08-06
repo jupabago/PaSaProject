@@ -66,6 +66,58 @@ GraphGrowthCurveLog1<-function (rawData, statsData){
 GraphGrowthCurveLog1(PA14Data,PA14DataStats)
 ```
 Figures 2 and 5 are on document : "Staph killing assays.Rmd"
+```{r code Figures 3 and 6}
+hist.5.LogBinSummarize<-hist.5 %>% filter(!max == 5)%>%  group_by(Sample,Species,Condition,Strain)%>% 
+  mutate(LogBin = case_when(max <= 10 ~ "(5, 10]",
+                        max<= 100    ~ "(10, 100]",
+                        max > 100 ~ paste0("(100, ",bquote("\U221E"), ")"))) %>% ungroup() %>% 
+  group_by(Species, Sample,Condition,ConditionNew,Strain,LogBin) %>% summarise(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density)) %>% 
+  ungroup() %>% group_by(Species, Condition,ConditionNew,Strain,LogBin) %>% summarise(MeanFrequencyLogBin = mean(FrequencyLogBin),SEFrequencyLogBin = std.error(FrequencyLogBin),
+                                                                                      MeanBiomassLogBin = mean(BiomassLogBin), SEBiomassLogBin = std.error(BiomassLogBin),
+                                                                                      MeanDensityLogBin = mean(DensityLogBin),SEDensityLogBin = std.error(DensityLogBin)) 
+hist.5.LogBinSummarize$LogBin<-as.factor(hist.5.LogBinSummarize$LogBin)
+hist.5.LogBinSummarize$LogBin <- factor(hist.5.LogBinSummarize$LogBin, levels = c("(5, 10]","(10, 100]",paste0("(100, ",bquote("\U221E"), ")")))
+hist.5.LogBinSummarize$Species <- factor(hist.5.LogBinSummarize$Species, levels = c("Pa", "Sa"),
+                  labels = c('P. aeruginosa','S. aureus'))
+
+PlotFreqLogBin<-function(strain,titulo){
+  df <-hist.5.LogBinSummarize%>% filter(Strain == strain)
+  ggplot()+
+    geom_col(data = df, aes(x=LogBin,y=MeanFrequencyLogBin,  fill =ConditionNew ),size=4,position = position_dodge( width = .9))+
+    geom_errorbar(data = df,aes(x=LogBin,ymin=MeanFrequencyLogBin-SEFrequencyLogBin, ymax = MeanFrequencyLogBin+SEFrequencyLogBin, group =ConditionNew ),size=.5,position = position_dodge2( width = .6))+
+    #labs(title = titulo)+
+    #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    facet_grid(.~Species)+
+    labs(fill = "Condition",y = "Mean number of aggregates per Bin",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
+    guides(color = FALSE)+
+    scale_fill_grey()+
+    theme_cowplot(12)+
+    theme(plot.title = element_text(hjust = 0.5),strip.text = element_text(face = "italic"))
+}
+
+PlotFreqLogBin("PA14wt", "WT")
+PlotFreqLogBin("PA14mut", "pqsL")
+
+PlotDensityLogBin<-function(strain,titulo){
+  df <-hist.5.LogBinSummarize%>% filter(Strain == strain)
+  ggplot()+
+    geom_col(data = df, aes(x=LogBin,y=MeanBiomassLogBin*100, fill =ConditionNew),size=4,position = position_dodge( width = .9))+
+    geom_errorbar(data = df,aes(x=LogBin,ymin=(MeanBiomassLogBin-SEBiomassLogBin)*100, ymax = (MeanBiomassLogBin+SEBiomassLogBin)*100, group =ConditionNew ),size=.5,position = position_dodge2( width = .6))+
+    #labs(title = titulo)+
+    #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    facet_grid(.~Species)+
+    labs(fill = "Condition",y = "% biomass contribution per bin",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
+    guides(color = FALSE)+
+    scale_fill_grey()+
+    theme_cowplot(12)+
+    theme(plot.title = element_text(hjust = 0.5),strip.text = element_text(face = "italic"))
+}
+PlotDensityLogBin("PA14wt", "WT")
+PlotDensityLogBin("PA14mut", "pqsL")
+
+
+```
+
 
 ```{r Figure 4}
 GraphGrowthCurveLog2<-function (rawData, statsData){

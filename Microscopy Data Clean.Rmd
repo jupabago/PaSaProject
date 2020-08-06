@@ -446,11 +446,18 @@ hist.5 <- allDataHistograms.5df %>% filter(TimePoint== 5) %>% filter( Condition 
 #ok so I am going to try to do this...I can't do bar graphs because the width of the bars is too thin to be able to be seen by the viewer, so I am doing points
 #I also want to do mono and co pointing to opposite sides, but I haven't been able to do it with recode, so I'll manually do it.
 cleanHist.5<-hist.5 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))#Combine aggregates from all 3 samples
+meancleanHist.5<-hist.5 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(MeanFrequency = mean(frequency))#mean aggregates from all 3 samples
 cleanHist.100<-hist.100 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(Frequency = sum(frequency))
+meancleanHist.100<-hist.100 %>% group_by(max, Species, ConditionNew, Strain) %>% summarise(MeanFrequency = mean(frequency))
 #However, one thing I want to try is to have different aggregate cutoffs... have 5 um bins up to 100um and then have the rest of the bins at 100 um3, so..
 only5Hist<- cleanHist.5 %>% filter (max<=100)
 only100Hist<- cleanHist.100 %>% filter (max>100)
 bin5and100Hist<-bind_rows(only5Hist,only100Hist)
+
+meanOnly5Hist<- meancleanHist.5 %>% filter (max<=100)
+meanOnly100Hist<- meancleanHist.100 %>% filter (max>100)
+meanBin5and100Hist<-bind_rows(meanOnly5Hist,meanOnly100Hist)
+
 
 #function for negative log
 reverselog_trans <- function(base = exp(1)) {#dont know exactly how this works, but it does... 
@@ -533,6 +540,8 @@ hist.plank.Agg.Sumary<-hist.5 %>%  group_by(Species, Sample,Condition,Strain)%>%
   mutate(Aggregation = case_when(max == 5 ~ "Planktonic",
                         max>5 ~ "Aggregate")) %>% ungroup() %>% 
   group_by(Species,Sample,Condition,ConditionNew, Strain,Aggregation) %>% summarize(FrequencyAggregation = sum(frequency), BiomassAggregation = sum(BiomassBin), DensityAggregation = sum(Density))
+
+
 #now I have to do some t-tests, since I used the same cultures for mono and co for each replicate, paired t-tests are allowed.
 ##### 
 #I know this sucks, but it's 1 AM so idgaf
@@ -566,7 +575,7 @@ tTestDataTable<-bind_rows(map(tTestDataAggvsPlank, TtestTable))
 #this is using mutate which is the same as above
 
 hist.plank.Agg.Stats<-hist.plank.Agg.Sumary %>% group_by(Species,Condition, ConditionNew,Strain,Aggregation) %>%
-  summarise(MeanFreq = mean(FrequencyAggregation), SEFreq = std.error(FrequencyAggregation), MeanBiomass = mean(BiomassAggregation), SEBiomass = std.error(BiomassAggregation))
+  summarise(MeanFreq = mean(FrequencyAggregation), SEFreq = std.error(FrequencyAggregation), MeanBiomass = mean(BiomassAggregation), SEBiomass = std.error(BiomassAggregation),MeanDensity = mean(DensityAggregation), SEDensity = std.error(DensityAggregation) )
 
 
 PlotAggsPlank<- function(strain, titulo){
@@ -582,9 +591,11 @@ PlotAggsPlank("PA14wt", "wt")
 PlotAggsPlank("PA14mut", "pqsL")
 
 ```
-```{r Aggregate histograms logarithmic bins}
+
+```{r Aggregate histograms logarithmic bins, Figures 3 and 6}
 #Now I need to do histograms with bins in a log scale, but for this I want to use the raw data that includes biomass per bin and density.
 #let's start by revisiting the original data set and just filter one sample to simplify things:
+#####
 hist.5.rep1<-hist.5 %>% filter(Sample == "rep1"&Condition == "Pa Mono"&Strain=="PA14mut")
 hist.5.rep1.logBins<-hist.5.rep1 %>% 
   mutate(LogBin = case_when(max <= 10 ~ 10,
@@ -619,7 +630,7 @@ PlotFreqLogBin<-function(strain, species,titulo){
   ggplot()+
     geom_col(data = df,aes(x=as.factor(LogBin),y=FrequencyLogBin,  fill =Sample ),size=4)+
     #geom_point(data = df,aes(x=as.factor(LogBin),y=FrequencyLogBin,  shape =Sample ),size=4)+
-    geom_label(data = df %>% filter(Sample == "rep1"),aes(x=as.factor(LogBin),y=1, label =round(BiomassLogBin*100,digits=1), color = "rep1"),size=4)+
+    geom_label(data = df %>% filter(Sample == "rep1"),aes(x=as.factor(LogBin),y=1, label =round(BiomassLogBin[Sample=="rep1"]*100,digits=1), color = "rep1"),size=4)+
     geom_label(data = df%>% filter(Sample == "rep2"),aes(x=as.factor(LogBin),y=.325, label =round(BiomassLogBin[Sample=="rep2"]*100,digits=1), color = "rep2"),size=4)+
     geom_label(data = df%>% filter(Sample == "rep3"),aes(x=as.factor(LogBin),y=.1, label =round(BiomassLogBin[Sample=="rep3"]*100,digits=1), color = "rep3"),size=4)+
     labs(title = titulo)+
@@ -631,11 +642,57 @@ PlotFreqLogBin<-function(strain, species,titulo){
     theme_cowplot()+
     theme(plot.title = element_text(hjust = 0.5))
 }
-PlotFreqLogBin("PA14wt", "Sa", "Sa WT")
-PlotFreqLogBin("PA14wt", "Pa", "Pa WT")
-PlotFreqLogBin("PA14mut", "Sa", "Sa pqsL")
-PlotFreqLogBin("PA14mut", "Pa", "Pa pqsL")
+ #old stuff
+#####
 
+#New code as of 8-5-20: report mean frequencies and density across samples, instead of per sample.
+hist.5.LogBinSummarize<-hist.5 %>% filter(!max == 5)%>%  group_by(Sample,Species,Condition,Strain)%>% 
+  mutate(LogBin = case_when(max <= 10 ~ "(5, 10]",
+                        max<= 100    ~ "(10, 100]",
+                        max > 100 ~ paste0("(100, ",bquote("\U221E"), ")"))) %>% ungroup() %>% 
+  group_by(Species, Sample,Condition,ConditionNew,Strain,LogBin) %>% summarise(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density)) %>% 
+  ungroup() %>% group_by(Species, Condition,ConditionNew,Strain,LogBin) %>% summarise(MeanFrequencyLogBin = mean(FrequencyLogBin),SEFrequencyLogBin = std.error(FrequencyLogBin),
+                                                                                      MeanBiomassLogBin = mean(BiomassLogBin), SEBiomassLogBin = std.error(BiomassLogBin),
+                                                                                      MeanDensityLogBin = mean(DensityLogBin),SEDensityLogBin = std.error(DensityLogBin)) 
+hist.5.LogBinSummarize$LogBin<-as.factor(hist.5.LogBinSummarize$LogBin)
+hist.5.LogBinSummarize$LogBin <- factor(hist.5.LogBinSummarize$LogBin, levels = c("(5, 10]","(10, 100]",paste0("(100, ",bquote("\U221E"), ")")))
+hist.5.LogBinSummarize$Species <- factor(hist.5.LogBinSummarize$Species, levels = c("Pa", "Sa"),
+                  labels = c('P. aeruginosa','S. aureus'))
+
+PlotFreqLogBin<-function(strain,titulo){
+  df <-hist.5.LogBinSummarize%>% filter(Strain == strain)
+  ggplot()+
+    geom_col(data = df, aes(x=LogBin,y=MeanFrequencyLogBin,  fill =ConditionNew ),size=4,position = position_dodge( width = .9))+
+    geom_errorbar(data = df,aes(x=LogBin,ymin=MeanFrequencyLogBin-SEFrequencyLogBin, ymax = MeanFrequencyLogBin+SEFrequencyLogBin, group =ConditionNew ),size=.5,position = position_dodge2( width = .6))+
+    #labs(title = titulo)+
+    #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    facet_grid(.~Species)+
+    labs(fill = "Condition",y = "Mean number of aggregates per Bin",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
+    guides(color = FALSE)+
+    scale_fill_grey()+
+    theme_cowplot(12)+
+    theme(plot.title = element_text(hjust = 0.5),strip.text = element_text(face = "italic"))
+}
+
+PlotFreqLogBin("PA14wt", "WT")
+PlotFreqLogBin("PA14mut", "pqsL")
+
+PlotDensityLogBin<-function(strain,titulo){
+  df <-hist.5.LogBinSummarize%>% filter(Strain == strain)
+  ggplot()+
+    geom_col(data = df, aes(x=LogBin,y=MeanBiomassLogBin*100, fill =ConditionNew),size=4,position = position_dodge( width = .9))+
+    geom_errorbar(data = df,aes(x=LogBin,ymin=(MeanBiomassLogBin-SEBiomassLogBin)*100, ymax = (MeanBiomassLogBin+SEBiomassLogBin)*100, group =ConditionNew ),size=.5,position = position_dodge2( width = .6))+
+    #labs(title = titulo)+
+    #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+    facet_grid(.~Species)+
+    labs(fill = "Condition",y = "% biomass contribution per bin",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
+    guides(color = FALSE)+
+    scale_fill_grey()+
+    theme_cowplot(12)+
+    theme(plot.title = element_text(hjust = 0.5),strip.text = element_text(face = "italic"))
+}
+PlotDensityLogBin("PA14wt", "WT")
+PlotDensityLogBin("PA14mut", "pqsL")
 ```
 
 
