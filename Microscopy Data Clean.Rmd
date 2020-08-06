@@ -789,7 +789,7 @@ ReadMixedAggregateFile<-function(sample, imageSource){#This function outputs tot
   datos<-datos %>% mutate(Sample = sample)
   return(datos)
 }
-
+PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
 PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
 #wt data retrieval
 mixedAggDataWtList<-map2(PA14wt,'RedSubtract', ReadMixedAggregateFile) 
@@ -817,15 +817,23 @@ mixedAggDataAllStats<-mixedAggDataAll%>% group_by(Sample, Strain) %>%
 mixedAggDataDual<-mixedAggDataAll %>% filter(Sa > 0 & Pa >0) 
 
 #only biomass
-mixedAggDataDualSlim<-mixedAggDataDual %>% group_by(Sample, Strain) %>% summarise (AggregatesMixed = n(), PaBiomassMixed = sum(Pa), SaBiomassMixed = sum(Sa), TotalBiomassMixed = sum(Size))
+mixedAggDataDualSlim<-mixedAggDataDual %>% group_by(Sample, Strain) %>% 
+  summarise (AggregatesMixed = n(), PaBiomassMixed = sum(Pa), SaBiomassMixed = sum(Sa), TotalBiomassMixed = sum(Size))
 
 #Compare all objects to dual-species objects
-combinedMixedAggData<- bind_cols(mixedAggDataAllSlim, mixedAggDataDualSlim)
-combinedMixedAggData<-combinedMixedAggData %>% mutate(PercentAggs = AggregatesMixed/Aggregates, PercentPaBiomass =  PaBiomassMixed/PaBiomass*100, PercentSaBiomass =  SaBiomassMixed/SaBiomass*100, PercentTotalBiomass = TotalBiomassMixed/TotalBiomass*100) %>% group_by(Strain) %>% mutate(MeanAggs = mean (PercentAggs), MeanPaBiomass = mean(PercentPaBiomass), MeanSaBiomass = mean(PercentSaBiomass), MeanTotalBiomass = mean(PercentTotalBiomass), SETotalBiomass = std.error(PercentTotalBiomass))
+combinedMixedAggData<- merge(mixedAggDataAllSlim, mixedAggDataDualSlim, by = "Sample")
 
-combinedMixedAggData$Strain <- factor(combinedMixedAggData$Strain, levels = c("PA14wt", "PA14mut"))
+combinedMixedAggData<-combinedMixedAggData %>% 
+  mutate(PercentAggs = AggregatesMixed/Aggregates*100, PercentPaBiomass =  PaBiomassMixed/PaBiomass*100, 
+         PercentSaBiomass =  SaBiomassMixed/SaBiomass*100, PercentTotalBiomass = TotalBiomassMixed/TotalBiomass*100) %>% group_by(Strain.x) %>% 
+  mutate(MeanAggs = mean (PercentAggs), SEAggs = std.error (PercentAggs), 
+         MeanPaBiomass = mean(PercentPaBiomass),SEPaBiomass = std.error(PercentPaBiomass),
+         MeanSaBiomass = mean(PercentSaBiomass),SESaBiomass = std.error(PercentSaBiomass), 
+         MeanTotalBiomass = mean(PercentTotalBiomass), SETotalBiomass = std.error(PercentTotalBiomass))
+
+combinedMixedAggData$Strain.x <- factor(combinedMixedAggData$Strain.x, levels = c("PA14wt", "PA14mut"))
 ### I think this is the final figure
-MixedAggregatePlot<-ggplot()+
+MixedAggregateBiomassPlot<-ggplot()+
   geom_point(data = combinedMixedAggData,aes(x=Strain,y=PercentTotalBiomass ),size=1)+
   geom_point(data = combinedMixedAggData,aes(x=Strain,y=MeanTotalBiomass, shape = Strain),size=3)+
   geom_errorbar(data = combinedMixedAggData,aes(x=Strain,ymin=MeanTotalBiomass-SETotalBiomass, ymax =MeanTotalBiomass+SETotalBiomass),size=.2, width = .2)+
@@ -839,6 +847,22 @@ MixedAggregatePlot<-ggplot()+
   theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 
+#MixedAggregateFrequencyPlot<-
+  ggplot()+
+  geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=PercentAggs ),size=1)+
+  geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=MeanAggs, shape = Strain.x),size=3)+
+  geom_errorbar(data = combinedMixedAggData,aes(x=Strain.x,ymin=MeanAggs-SEAggs, ymax =MeanAggs+SEAggs),size=.2, width = .2)+
+  #labs(title ="Proportion of mixed species biomass")+
+  #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  scale_shape_manual(values = c(1,2),name = "", limits=c("PA14wt","PA14mut"))+
+  scale_x_discrete(breaks=c("PA14wt","PA14mut"), 
+                     labels = c(bquote(paste(" wild-type")),
+                                bquote(paste(italic(Delta*"pqsL")))))+
+  labs(y = "% mixed aggregates", x = "")+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5),legend.position="none")
+
+
 #this includes all the other maybe relevant data but for dual-species aggregates only
 mixedAggDataDualStats<-mixedAggDataDual %>% group_by(Sample, Strain) %>%
   summarise (Aggregates = n(), PaBiomass = sum(Pa), SaBiomass = sum(Sa), TotalBiomass = sum(Size)) %>% mutate(MeanSizeSample =Aggregates/TotalBiomass) %>%
@@ -847,9 +871,13 @@ mixedAggDataDualStats<-mixedAggDataDual %>% group_by(Sample, Strain) %>%
 
 #T-tests
 
-tTestMixWt<-combinedMixedAggData %>% filter(Strain == "PA14wt") %>% pull(PercentTotalBiomass)
-tTestMixMut<-combinedMixedAggData %>% filter(Strain == "PA14mut") %>% pull(PercentTotalBiomass)
-tTestMixAggs<-t.test(x = tTestMixWt, y = tTestMixMut, paired = F)
+tTestMixBiomassWt<-combinedMixedAggData %>% filter(Strain.x == "PA14wt") %>% pull(PercentTotalBiomass)
+tTestMixBiomassMut<-combinedMixedAggData %>% filter(Strain.x == "PA14mut") %>% pull(PercentTotalBiomass)
+tTestMixBiomass<-t.test(x = tTestMixBiomassWt, y = tTestMixBiomassMut, paired = F)
+
+tTestMixAggsWt<-combinedMixedAggData %>% filter(Strain.x == "PA14wt") %>% pull(PercentAggs)
+tTestMixAggsMut<-combinedMixedAggData %>% filter(Strain.x == "PA14mut") %>% pull(PercentAggs)
+tTestMixAggs<-t.test(x = tTestMixAggsWt, y = tTestMixAggsMut, paired = F)
 
 ```
 # Combining all Spatial Data
@@ -864,7 +892,7 @@ plotNonButterfly("Sa", "PA14mut")
 plotNonButterfly("Pa", "PA14wt")
 plotNonButterfly("Pa", "PA14mut")
 
-MixedAggregatePlot
+
 
 #Enrichment plot
 sa.paPlot<-ggplot()+
@@ -889,10 +917,10 @@ sa.saPlot<-ggplot()+
   ylim(1, 9)+
   theme_cowplot()
 
-legendFigure3 <- get_legend(sa.saPlot + theme(legend.box.margin = margin(0, 0, 0, -10)))
-figure3 <- plot_grid(sa.saPlot+theme(legend.position="none"),sa.paPlot+theme(legend.position="none"),
+legendFigure7 <- get_legend(sa.saPlot + theme(legend.box.margin = margin(0, 0, 0, -10)))
+figure7 <- plot_grid(sa.saPlot+theme(legend.position="none"),sa.paPlot+theme(legend.position="none"),
                       align='vh',labels = c("B", "C"),hjust = -1,nrow = 1)
-plot_grid(figure3,legendFigure3,rel_widths = c(4, 1.7))
+plot_grid(figure7,legendFigure7,rel_widths = c(4, 1.7))
 #plot_grid(sa.saPlot,sa.paPlot,align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
 
 ```
