@@ -538,33 +538,61 @@ plotNonButterfly(bin5and100Hist, "Pa", "PA14mut")
 #this is the summary beacuse I dont like further analyzing data after summarizing shit, so mutate at the top follows 
 hist.plank.Agg.Sumary<-hist.5 %>%  group_by(Species, Sample,Condition,Strain)%>% 
   mutate(Aggregation = case_when(max == 5 ~ "Planktonic",
-                        max>5 ~ "Aggregate")) %>% ungroup() %>% 
-  group_by(Species,Sample,Condition,ConditionNew, Strain,Aggregation) %>% summarize(FrequencyAggregation = sum(frequency), BiomassAggregation = sum(BiomassBin), DensityAggregation = sum(Density))
+                        max>5 ~ "Aggregate")) %>% ungroup() %>% group_by(Species,Sample,Condition,ConditionNew, Strain,Aggregation) %>% summarize(FrequencyAggregation = sum(frequency), BiomassAggregation = sum(BiomassBin), DensityAggregation = sum(Density))
 
 
 #now I have to do some t-tests, since I used the same cultures for mono and co for each replicate, paired t-tests are allowed.
 ##### 
 #I know this sucks, but it's 1 AM so idgaf
 SaMonoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Sa Mono", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
-SaCoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
-SaWtAggTest<-t.test(x = SaMonoWtAggSum, y = SaCoWtAggSum, paired = T)
+SaMonoWtPlankSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Sa Mono", Strain == "PA14wt",Aggregation == "Planktonic") %>% pull(BiomassAggregation)
 SaMonoMutAggSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Sa Mono", Strain == "PA14mut",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+SaMonoMutPlankSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Sa Mono", Strain == "PA14mut",Aggregation == "Planktonic") %>% pull(BiomassAggregation)
+
+SaCoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
+SaCoWtPlankSum<-hist.plank.Agg.Sumary %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14wt",Aggregation == "Planktonic") %>% pull(BiomassAggregation)
 SaCoMutAggSum<-hist.plank.Agg.Sumary %>%filter(Species == "Sa", ConditionNew == "Co", Strain == "PA14mut",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
-SaMutAggTest<-t.test(x = SaMonoMutAggSum, y = SaCoMutAggSum, paired = T)
+SaCoMutPlankSum<-hist.plank.Agg.Sumary %>%filter(Species == "Sa", ConditionNew == "Co", Strain == "PA14mut",Aggregation == "Planktonic") %>% pull(BiomassAggregation)
+
+#mono vs Co
+SaWtAggTest<-t.test(x = SaMonoWtAggSum, y = SaCoWtAggSum, paired = T)#wt
+SaMutAggTest<-t.test(x = SaMonoMutAggSum, y = SaCoMutAggSum, paired = T)#mutant
+#Plank vs Agg
+SaMonoWtAggVsPlankTest<-t.test(x = SaMonoWtAggSum, y = SaMonoWtPlankSum, paired = T)#wt
+SaMonoMutAggVsPlankTest<-t.test(x = SaMonoMutAggSum, y = SaMonoMutPlankSum, paired = T)#mutant
+SaCoWtAggVsPlankTest<-t.test(x = SaCoWtAggSum, y = SaCoWtPlankSum, paired = T)#wt
+SaCoMutAggVsPlankTest<-t.test(x = SaCoMutAggSum, y = SaCoMutPlankSum, paired = T)#mutant
+#wt vs mutant
+SaMonoWtVsMutAggTest<-t.test(x = SaMonoWtAggSum, y = SaMonoMutAggSum, paired = F)
+SaCoWtVsMutAggTest<-t.test(x = SaCoWtAggSum, y = SaCoMutAggSum, paired = F)
+
 
 PaMonoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Pa Mono", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
 PaCoWtAggSum<-hist.plank.Agg.Sumary %>%filter(Species == "Pa", ConditionNew == "Co", Strain == "PA14wt",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
-PaWtAggTest<-t.test(x = PaMonoWtAggSum, y = PaCoWtAggSum, paired = T)
 PaMonoMutAggSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Pa Mono", Strain == "PA14mut",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
 PaCoMutAggSum<-hist.plank.Agg.Sumary %>%filter(Species == "Pa", ConditionNew == "Co", Strain == "PA14mut",Aggregation == "Aggregate") %>% pull(BiomassAggregation)
-PaMutAggTest<-t.test(x = PaMonoMutAggSum, y = PaCoMutAggSum, paired = T)
 
-SaMonoWtVsMutAggTest<-t.test(x = SaMonoWtAggSum, y = SaMonoMutAggSum, paired = F)
-SaCoWtVsMutAggTest<-t.test(x = SaCoWtAggSum, y = SaCoMutAggSum, paired = F)
+PaMonoWtPlankSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Pa Mono", Strain == "PA14wt",Aggregation == "Planktonic") %>% pull(BiomassAggregation)
+PaCoWtPlankSum<-hist.plank.Agg.Sumary %>%filter(Species == "Pa", ConditionNew == "Co", Strain == "PA14wt",Aggregation == "Planktonic") %>% pull(BiomassAggregation)
+PaMonoMutPlankSum<-hist.plank.Agg.Sumary %>%filter(Condition == "Pa Mono", Strain == "PA14mut",Aggregation == "Planktonic") %>% pull(BiomassAggregation)
+PaCoMutPlankSum<-hist.plank.Agg.Sumary %>%filter(Species == "Pa", ConditionNew == "Co", Strain == "PA14mut",Aggregation == "Planktonic") %>% pull(BiomassAggregation)
+
+PaWtAggTest<-t.test(x = PaMonoWtAggSum, y = PaCoWtAggSum, paired = T)
+PaMutAggTest<-t.test(x = PaMonoMutAggSum, y = PaCoMutAggSum, paired = T)
 PaMonoWtVsMutAggTest<-t.test(x = PaMonoWtAggSum, y = PaMonoMutAggSum, paired = F)
 PaCoWtVsMutAggTest<-t.test(x = PaCoWtAggSum, y = PaCoMutAggSum, paired = F)
 
-tTestDataAggvsPlank<-list(SaWtAggTest, SaMutAggTest, PaWtAggTest,PaMutAggTest,SaMonoWtVsMutAggTest,SaCoWtVsMutAggTest,PaMonoWtVsMutAggTest,PaCoWtVsMutAggTest)
+PaMonoWtAggVsPlankTest<-t.test(x = PaMonoWtAggSum, y = PaMonoWtPlankSum, paired = T)
+PaCoWtAggVsPlankTest<-t.test(x = PaCoWtAggSum, y = PaCoWtPlankSum, paired = T)
+PaMonoMutAggVsPlankTest<-t.test(x = PaMonoMutAggSum, y = PaMonoMutPlankSum, paired = T)
+PaCoMutAggVsPlankTest<-t.test(x = PaCoMutAggSum, y = PaCoMutPlankSum, paired = T)
+
+
+
+tTestDataAggvsPlank<-list(SaWtAggTest,SaMutAggTest,SaMonoWtAggVsPlankTest,SaMonoMutAggVsPlankTest,
+                          SaCoWtAggVsPlankTest,SaCoMutAggVsPlankTest,SaMonoWtVsMutAggTest,SaCoWtVsMutAggTest,
+                          PaWtAggTest,PaMutAggTest,PaMonoWtAggVsPlankTest,PaMonoMutAggVsPlankTest,
+                          PaCoWtAggVsPlankTest,PaCoMutAggVsPlankTest,PaMonoWtVsMutAggTest,PaCoWtVsMutAggTest)
 TtestTable<-name <- function(dataPoint) {
   data <-data.frame(dataPoint$data.name, dataPoint$p.value)
 }
@@ -596,9 +624,9 @@ PlotAggsPlank("PA14mut", "pqsL")
 #Now I need to do histograms with bins in a log scale, but for this I want to use the raw data that includes biomass per bin and density.
 #let's start by revisiting the original data set and just filter one sample to simplify things:
 #####
-hist.5.rep1<-hist.5 %>% filter(Sample == "rep1"&Condition == "Pa Mono"&Strain=="PA14mut")
+hist.5.rep1<-hist.5 %>% filter(Sample == "rep1"&Condition == "Pa Mono"&Strain=="PA14mut") 
 hist.5.rep1.logBins<-hist.5.rep1 %>% 
-  mutate(LogBin = case_when(max <= 10 ~ 10,
+  mutate(LogBin = case_when(max <= 10 ~ 10, 
                         max<= 100    ~ 100,
                         max<= 1000   ~ 1000,
                         max<= 10000  ~ 10000,
@@ -624,7 +652,7 @@ hist.5.LogBinSummarize<-hist.5 %>% filter(!max == 5)%>%  group_by(Sample,Species
                         max<= 100000 ~ 100000,
                         max > 100000 ~ 1000000)) %>% ungroup() %>% 
   group_by(Species, Sample,Condition,ConditionNew,Strain,LogBin) %>% summarise(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density))
-
+ 
 PlotFreqLogBin<-function(strain, species,titulo){
   df <-hist.5.LogBinSummarize%>% filter(Strain == strain & Species == species)
   ggplot()+
@@ -859,6 +887,7 @@ MixedAggregateBiomassPlot<-ggplot()+
                      labels = c(bquote(paste(" wild-type")),
                                 bquote(paste(italic(Delta*"pqsL")))))+
   labs(y = "% mixed aggregates", x = "")+
+  ylim(0,10)+
   theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 
