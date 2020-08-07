@@ -363,6 +363,8 @@ SaWtCo5<-hist.5.LogBinData %>%filter(Species =="Sa", ConditionNew == "Co", Strai
 SaMutCo5<-hist.5.LogBinData %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14mut",LogBin == "(5, 10]") %>% pull(FrequencyLogBin)
 SaWtCo10<-hist.5.LogBinData %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14wt",LogBin == "(10, 100]") %>% pull(FrequencyLogBin)
 SaMutCo10<-hist.5.LogBinData %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14mut",LogBin == "(10, 100]") %>% pull(FrequencyLogBin)
+SaWtCo100<-hist.5.LogBinData %>%filter(Species =="Sa", ConditionNew == "Co", Strain=="PA14wt",LogBin == paste0("(100, ",bquote("\U221E"), ")")) %>% pull(FrequencyLogBin)
+SaMutCo100<-hist.5.LogBinData %>%filter(Species =="Sa", ConditionNew == "Co", Strain=="PA14mut",LogBin == paste0("(100, ",bquote("\U221E"), ")")) %>% pull(FrequencyLogBin)
 
 PaWtMono5<-hist.5.LogBinData %>%filter(Condition == "Pa Mono", Strain == "PA14wt",LogBin == "(5, 10]") %>% pull(FrequencyLogBin)
 PaMutMono5<-hist.5.LogBinData %>%filter(Condition == "Pa Mono", Strain == "PA14mut",LogBin == "(5, 10]") %>% pull(FrequencyLogBin)
@@ -378,7 +380,7 @@ PaMutCo10<-hist.5.LogBinData %>%filter(Species =="Pa", ConditionNew == "Co", Str
 PaWtCo100<-hist.5.LogBinData %>%filter(Species =="Pa",ConditionNew=="Co",Strain == "PA14wt",LogBin == paste0("(100, ",bquote("\U221E"), ")")) %>% pull(FrequencyLogBin)
 PaMutCo100<-hist.5.LogBinData %>%filter(Species =="Pa",ConditionNew=="Co",Strain == "PA14mut",LogBin==paste0("(100, ",bquote("\U221E"), ")")) %>% pull(FrequencyLogBin)
 
-#Pa mono vs Co
+#mono vs Co
 SaWt5<-t.test(x = SaWtMono5, y = SaWtCo5, paired = T)
 SaWt10<-t.test(x = SaWtMono10, y = SaWtCo10, paired = T)
 SaMut5<-t.test(x = SaMutMono5, y = SaMutCo5, paired = T)
@@ -391,7 +393,23 @@ PaMut5<-t.test(x = PaMutMono5, y = PaMutCo5, paired = T)
 PaMut10<-t.test(x = PaMutMono10, y = PaMutCo10, paired = T)
 #PaMut100<-t.test(x = PaMutMono100, y = PaMutCo100, paired = T)
 
-tTestDatAggSizes<-list(SaWt5,SaWt10,SaMut5,SaMut10,PaWt5,PaWt10,PaMut5,PaMut10)
+#Wt vs pqsL
+SaWtMut5<-t.test(x = SaMutCo5, y = SaWtCo5, paired = F)
+SaWtMut10<-t.test(x = SaMutCo10, y = SaWtCo10, paired = F)
+#SaWtMut100<-t.test(x = SaMutCo100, y = SaWtCo100, paired = F)
+
+PaMonoWtMut5<-t.test(x = PaMutMono5, y = PaWtMono5, paired = F)
+PaMonoWtMut10<-t.test(x = PaMutMono10, y = PaWtMono10, paired = F)
+PaMonoWtMut100<-t.test(x = PaMutMono100, y = PaWtMono100, paired = F)
+
+PaCoWtMut5<-t.test(x = PaMutCo5, y = PaWtCo5, paired = F)
+PaCoWtMut10<-t.test(x = PaMutCo10, y = PaWtCo10, paired = F)
+PaCoWtMut100<-t.test(x = PaMutCo100, y = PaWtCo100, paired = F)
+
+
+
+tTestDatAggSizes<-list(SaWt5,SaWt10,SaMut5,SaMut10,PaWt5,PaWt10,PaMut5,PaMut10,SaWtMut5,SaWtMut10,
+                       PaMonoWtMut5,PaMonoWtMut10,PaMonoWtMut100,PaCoWtMut5,PaCoWtMut10,PaCoWtMut100)
 tTestAggSizesTable<-bind_rows(map(tTestDatAggSizes, TtestTable))
 
 #####
