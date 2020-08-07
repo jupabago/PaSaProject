@@ -357,13 +357,13 @@ ggplot()+
 ```
 
 ```{r aggregates}
-MapAggregates<- function(listSamples, reps){
-  mappedData<-map2(listSamples, reps, GetAggregates)
-  boundData<-bind_rows(mappedData)
-  blah <-deparse(substitute(listSamples))
+MapAggregates<- function(listSamples, reps){ 
+  mappedData<-map2(listSamples, reps, GetAggregates) 
+  boundData<-bind_rows(mappedData) 
+  blah <-deparse(substitute(listSamples)) 
   boundData<-boundData %>% mutate(Strain = blah)#needs to be two lines, it doesnt work if you do it directly
   return(boundData)
-  }
+  } 
 GetAggregates<-function(sample, samplename){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/Spatial paper Data/Microscopy Data/Other Data/',sample,'/aggregateSizes')
   fileList<-list.files(path = folder, full.names = TRUE)
@@ -487,7 +487,8 @@ GraphGrowthCurvesExpCleanCoCulture<-function (dataStats){
 GraphGrowthCurvesExpCleanCoCulture(cleanResultsStats1)
 ```
 
-```{r threshold Sa by time}
+```{r threshold Sa by time (not useful)}
+
 #This function keeps getting changed but using the same name... so heads up on that
 GetResults<-function(sample, samplename){
   folder<- paste0('/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Microscopy Data/Threshold by time/',sample,'/resultsByTime6')
@@ -550,7 +551,7 @@ ggplot()+
   theme_cowplot(12)
 
 ```
-
+#Final Growth curves data
 ```{r Pa Growth curves from RedSubtracted Images}
 #This will give us a sense on how much of the Pa data was erased because it overlapped with the Sa data.
 GetResults<-function(sample, samplename){
@@ -572,13 +573,19 @@ return(growthDf)
 }
 
 redSubtractedData<-ProcessResults()#This was run using the "GetResults" function at the top..
-paRedSubtractResults<-redSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut"))
-nonSubtractedData<-ProcessResults()
-paNonSubtractResults<-nonSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut"))
+redSubtractedDataSummary<-redSubtractedData[[1]]%>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut"))
+paRedSubtractResults<-redSubtractedDataSummary%>% filter(Species == "Pa")
+saRedSubtractResults<-redSubtractedDataSummary%>% filter(Species == "Sa")
 
+nonSubtractedData<-ProcessResults()
+nonSubtractedDataSummary<-nonSubtractedData[[1]]%>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut"))
+paNonSubtractResults<-nonSubtractedData[[1]]%>% filter(Species == "Pa") 
+saNonSubtractResults<-nonSubtractedData[[1]]%>% filter(Species == "Sa") 
+
+#comparing the data from red 
 ggplot()+
-  geom_line(data=redSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color = "red", size=2)+
-  geom_line(data=nonSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color ="blue", size=2)+
+  geom_line(data=redSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color = "red", size=.2)+
+  geom_line(data=nonSubtractedData[[1]]%>% filter(Species == "Pa") %>% filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=LogTotals),color ="blue", size=.2)+
   facet_grid(Strain~Sample)+
   theme_cowplot(12)
 
@@ -586,6 +593,34 @@ ggplot()+
   geom_line(data=redSubtractedData[[2]]%>% filter(Species == "Pa") %>% 
               filter(Condition == "Pa:Sa 1:1"& Strain %in% c("PA14wt", "PA14mut")), aes(x=TimePoint, y=MeanLogTotals,color = Strain), size=2)+
   theme_cowplot(12)
+
+#Compare biomass of Staph wt vs mutant from replicates
+
+saRedSubtractResults1<-saRedSubtractResults %>%ungroup() %>% group_by(Sample, TimePoint) %>% 
+  mutate (mutantAbsDifference = (abs(Totals -Totals[Strain == "PA14mut"])/Totals )) %>% 
+  mutate (mutantRatio = (Totals[Strain == "PA14mut"])/Totals ) %>% ungroup() %>% 
+  group_by(Strain) %>% mutate (repDifference1.2 = (abs(Totals[Sample == "rep1"] -Totals[Sample == "rep2"]))/Totals ) %>% 
+  mutate (repDifference2.3 = (abs(Totals[Sample == "rep2"] -Totals[Sample == "rep3"]))/Totals ) %>% 
+  mutate (repDifference1.3 = (abs(Totals[Sample == "rep1"] -Totals[Sample == "rep3"]))/Totals ) %>% ungroup()
+  
+tidysaRedSubtractResults1<-saRedSubtractResults1 %>% gather(Comparison, Difference, -TimePoint, -Sample, -Strain, -Condition, -Species, -Totals, -LogTotals) %>% filter(!Difference == 0)
+
+ggplot()+#plotting the absolute difference between replicates and strains
+  geom_jitter(data = tidysaRedSubtractResults1 %>% filter(!Comparison=="mutantRatio"),
+              aes(x=TimePoint,y=Difference, color = Comparison),size=3, height = 0, width = .2)+
+  labs(title ="Variance comparison between strains and replicates")+
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot()+#plotting the absolute difference between strains only
+  geom_jitter(data = tidysaRedSubtractResults1 %>% filter(Comparison=="mutantRatio") %>% filter(!Difference == 1),
+              aes(x=TimePoint,y=Difference, color = Comparison, shape = Sample),size=3, height = 0, width = .2)+
+  labs(title ="Variance comparison mutant/wt")+
+  scale_y_log10(breaks = c(0.5,.25,1,2.5,5,10))+#breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5))
+
 
 ```
 #Functions for histograms
