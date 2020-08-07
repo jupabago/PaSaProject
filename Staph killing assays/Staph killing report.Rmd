@@ -14,12 +14,11 @@ library(dplyr)
 library(cowplot)
 library(scales)
 library(tidyr)
-library(growthcurver)
 library(plotrix)
 ```
 
 ```{r zone of inhibition data input}
-diskFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/PaSa Project/Staph killing assays/disk difussion assays.csv"
+diskFile<-"~/Documents/Whiteley/PROJECTS/PaSaProject/Staph killing assays/disk difussion assays.csv"
 diskData <-read.csv(diskFile)
 diskData$strain <- factor(diskData$strain, levels = c("wt", "pqsl"))
 diskData <- diskData %>% mutate(val1 = value1-6,val2 = value2-6,average = (val1+val2)/2 )#this removes the diameter of the disks
@@ -51,11 +50,9 @@ diskMutTtest<-t.test(x = diskMutShaking$avg, y = diskMutStatic$avg, paired = T)
 diskShakingTtest<-t.test(x = diskWtShaking1$avg, y = diskMutShaking$avg, paired = T)
 diskStaticTtest<-t.test(x = diskMutStatic$avg, y = diskWtStatic1$avg, paired = T)
 diskWtStaticMutShakingTtest<-t.test(x = diskMutShaking$avg, y = diskWtStatic1$avg, paired = T)
-tTestData<-list(diskWtTtest, diskMutTtest,diskShakingTtest, diskStaticTtest, diskWtStaticMutShakingTtest)
-TtestTable<-name <- function(dataPoint) {
-  data <-data.frame(dataPoint$data.name, dataPoint$p.value)
-}
-tTestDataTable<-bind_rows(map(tTestData, TtestTable))
+diskMutStaticWtShakingTtest<-t.test(x = diskWtShaking1$avg, y = diskMutStatic$avg, paired = T)
+tTestDataDiskDifussion<-list(diskWtTtest, diskMutTtest,diskShakingTtest, diskStaticTtest, diskWtStaticMutShakingTtest,diskMutStaticWtShakingTtest)
+tTestDiskDifussionTable<-bind_rows(map(tTestDataDiskDifussion, TtestTable))
 ```
 ```{r zone of inhibition plot }
 ggplot()+#both PA and Sa
@@ -239,5 +236,31 @@ ggplot()+
     figure5 <- plot_grid(DiskPlotMut+theme(legend.position="none"),luminescencePlotMut+theme(legend.position="none"),
                       align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
     plot_grid(figure5,legendFigure5,rel_widths = c(6, 1.7))
-    
 ```
+
+```{r t-tests}
+wtStatLuminescence<-luminescenceData1 %>% filter (CondStrain == "wtStat") %>% filter (TimePoint<7 &TechReplicate == 1)  %>% pull(techMean)
+wtMixedLuminescence<-luminescenceData1 %>% filter (CondStrain == "wtShake") %>% filter (TimePoint<7 &TechReplicate == 1) %>% pull(techMean)
+
+mutStatLuminescence<-luminescenceData1 %>% filter (CondStrain == "pqsLStat") %>% filter (TimePoint<7 &TechReplicate == 1)%>% pull(techMean)
+mutMixedLuminescence<-luminescenceData1 %>% filter (CondStrain == "pqsLShake") %>% filter (TimePoint<7 &TechReplicate == 1)%>% pull(techMean)
+
+tTestWtLuminescence<-t.test(x = wtStatLuminescence, y = wtMixedLuminescence, paired = T)
+tTestMutLuminescence<-t.test(x = mutStatLuminescence, y = mutMixedLuminescence, paired = T)
+
+tTestStatLuminescence<-t.test(x = wtStatLuminescence, y = mutStatLuminescence, paired = T)
+tTestMixedLuminescence<-t.test(x = wtMixedLuminescence, y = mutMixedLuminescence, paired = T)
+
+tTestWtStatVSMutMixedLuminescence<-t.test(x = wtStatLuminescence, y = mutMixedLuminescence, paired = T)
+tTestMutStatVSWtMixedLuminescence<-t.test(x = wtMixedLuminescence, y = mutStatLuminescence, paired = T)
+
+tTestDataLuminescence<-list(tTestWtLuminescence,tTestMutLuminescence,tTestStatLuminescence,tTestMixedLuminescence,
+                            tTestWtStatVSMutMixedLuminescence,tTestMutStatVSWtMixedLuminescence)
+TtestTable<-name <- function(dataPoint) {
+  data <-data.frame(dataPoint$data.name, dataPoint$p.value)
+}
+tTestLuminescenceTable<-bind_rows(map(tTestDataLuminescence, TtestTable))
+
+
+```
+
