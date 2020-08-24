@@ -213,7 +213,7 @@ hist.plank.Agg.Sumary<-hist.5 %>%  group_by(Species, Sample,Condition,Strain)%>%
   mutate(Aggregation = case_when(max == 5 ~ "Planktonic",
                         max>5 ~ "Aggregate")) %>% ungroup() %>% group_by(Species,Sample,Condition,ConditionNew, Strain,Aggregation) %>% summarize(FrequencyAggregation = sum(frequency), BiomassAggregation = sum(BiomassBin), DensityAggregation = sum(Density))
 
-hist.plank.Agg.Stats<-hist.plank.Agg.Sumary %>% group_by(Species,Condition, ConditionNew,Strain,Aggregation) %>%
+hist.plank.Agg.Stats<-hist.plank.Agg.Sumary %>% group_by(Species,Condition, ConditionNew,Strain,Aggregation) %>% 
   summarise(MeanFreq = mean(FrequencyAggregation), SEFreq = std.error(FrequencyAggregation), MeanBiomass = mean(BiomassAggregation), SEBiomass = std.error(BiomassAggregation),MeanDensity = mean(DensityAggregation), SEDensity = std.error(DensityAggregation) )
 hist.plank.Agg.Stats$Species <- factor(hist.plank.Agg.Stats$Species, levels = c("Pa", "Sa"),
                   labels = c('P. aeruginosa','S. aureus'))
@@ -307,6 +307,8 @@ hist.5.LogBinData<-hist.5 %>% filter(!max == 5)%>%  group_by(Sample,Species,Cond
                         max<= 100    ~ "(10, 100]",
                         max > 100 ~ paste0("(100, ",bquote("\U221E"), ")"))) %>% ungroup() %>% 
   group_by(Species, Sample,Condition,ConditionNew,Strain,LogBin) %>% summarise(FrequencyLogBin = sum(frequency), BiomassLogBin = sum(BiomassBin), DensityLogBin = sum(Density)) %>% ungroup() 
+
+
 
 hist.5.LogBinSummarize<-hist.5.LogBinData%>% group_by(Species, Condition,ConditionNew,Strain,LogBin) %>%
   summarise(MeanFrequencyLogBin = mean(FrequencyLogBin),SEFrequencyLogBin = std.error(FrequencyLogBin),
@@ -416,6 +418,10 @@ figure2F<-PlotFreqLogBin("PA14mut", "pqsL")
 #####
 figure1EF<-plot_grid(figure1E,figure1F,rel_widths = c(1,1.2),align='vh',labels = c("E", "F"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
 figure2EF<-plot_grid(figure2E,figure2F,rel_widths = c(1,1.2),align='vh',labels = c("E", "F"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
+
+
+
+
 ```
 
 ```{Make full figures 1 and 2}
@@ -426,6 +432,9 @@ plots <- align_plots(figure2AB, figure2CD,align = 'vh', axis = 'l')
 plot_grid(plots[[1]],plots[[2]],figure2EF, align='vh',nrow = 3, rel_heights = c(1,1,1.5))
 
 ```
+
+
+
 ```{r biomass per bin}
 PlotDensityLogBin<-function(strain,titulo){
   df <-hist.5.LogBinSummarize%>% filter(Strain == strain)
