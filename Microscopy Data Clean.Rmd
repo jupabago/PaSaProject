@@ -20,6 +20,7 @@ library(tidyr)
 library(purrr)
 library(plotrix)#this is for std.error function
 library(scales)#for negative log
+library(stringr)
 
 PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
 PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
@@ -861,10 +862,11 @@ combinedMixedAggData<-combinedMixedAggData %>%
 
 combinedMixedAggData$Strain.x <- factor(combinedMixedAggData$Strain.x, levels = c("PA14wt", "PA14mut"))
 ### I think this is the final figure
-MixedAggregateBiomassPlot<-ggplot()+
-  geom_point(data = combinedMixedAggData,aes(x=Strain,y=PercentTotalBiomass ),size=1)+
-  geom_point(data = combinedMixedAggData,aes(x=Strain,y=MeanTotalBiomass, shape = Strain),size=3)+
-  geom_errorbar(data = combinedMixedAggData,aes(x=Strain,ymin=MeanTotalBiomass-SETotalBiomass, ymax =MeanTotalBiomass+SETotalBiomass),size=.2, width = .2)+
+#MixedAggregateBiomassPlot<-
+  ggplot()+
+  geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=PercentTotalBiomass ),size=1)+
+  geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=MeanTotalBiomass),shape = 1, size=3)+
+  geom_errorbar(data = combinedMixedAggData,aes(x=Strain.x,ymin=MeanTotalBiomass-SETotalBiomass, ymax =MeanTotalBiomass+SETotalBiomass),size=.2, width = 0)+
   #labs(title ="Proportion of mixed species biomass")+
   #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
   scale_shape_manual(values = c(1,2),name = "", limits=c("PA14wt","PA14mut"))+
@@ -921,8 +923,6 @@ plotNonButterfly("Sa", "PA14mut")
 plotNonButterfly("Pa", "PA14wt")
 plotNonButterfly("Pa", "PA14mut")
 
-
-
 #Enrichment plot
 sa.paPlot<-ggplot()+
   geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),aes(y=meanEnrichment, x = Strain, shape = Strain),size=4)+
@@ -950,6 +950,7 @@ legendFigure7 <- get_legend(sa.saPlot + theme(legend.box.margin = margin(0, 0, 0
 figure7 <- plot_grid(sa.saPlot+theme(legend.position="none"),sa.paPlot+theme(legend.position="none"),
                       align='vh',labels = c("B", "C"),hjust = -1,nrow = 1)
 plot_grid(figure7,legendFigure7,rel_widths = c(4, 1.7))
-#plot_grid(sa.saPlot,sa.paPlot,align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
+figure7
+plot_grid(sa.saPlot,sa.paPlot,align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
 
 ```
