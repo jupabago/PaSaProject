@@ -34,13 +34,15 @@ PA14DataStats<-PA14Data%>% group_by(condition, bug, time,strain) %>% summarise(C
 
 
 GraphGrowthCurveLog1<-function (Strain){
+  if(Strain == "wt"){etiqueta = bquote(paste(italic('P. aeruginosa')))}
+  if(Strain == "mut"){etiqueta = bquote(paste(italic('P. aeruginosa '*Delta*"pqsL")))}
     shakingWtPlot<-ggplot()+
       geom_line(data=PA14DataStats%>% filter(condition == "Shaking" & strain == Strain), aes(x=time, y=logCFUmean, linetype = bug), size=.5)+
       geom_errorbar(data=PA14DataStats%>% filter(condition == "Shaking" & strain == Strain),aes(x = time, ymin = logCFUmean-logCFUse, ymax=logCFUmean+logCFUse), width = 0, size = 0.5)+
       geom_hline(yintercept=9.619, color='red', linetype = "solid") + #Pa stirred
       geom_hline(yintercept=9.13, color='red', linetype = "dashed") + #Sa stirred
-      scale_linetype_manual(values = c( "solid","dashed"), labels = c(bquote(paste(italic('P. aeruginosa'))),bquote(paste(italic('S. aureus')))))+
-      labs(x = "Time (hours)", y = expression(paste(Log[10], " CFU")), linetype = "Species")+
+      scale_linetype_manual(values = c( "solid","dashed"), labels = c(etiqueta,bquote(paste(italic('S. aureus')))))+
+      labs(x = "Time (hours)", y = expression(paste(Log[10], " CFU")), linetype = "")+
       scale_y_continuous(limits = c(4,10))+
       scale_x_continuous(breaks = c(0,4,8,12,16))+
       theme_cowplot(12)+
@@ -49,8 +51,6 @@ GraphGrowthCurveLog1<-function (Strain){
             axis.title.y = element_text(margin = margin(0,0,0,0),size=13),axis.text.y = element_text(margin = margin(0,0,2,0),size=11),
             legend.title = element_text(size=13),legend.text = element_text(size = 11))
     
-
-      
     staticWtPlot<-ggplot()+
       geom_line(data=PA14DataStats%>% filter(condition == "Static" & strain == Strain), aes(x=time, y=logCFUmean, linetype = bug), size=.5)+
       geom_errorbar(data=PA14DataStats%>% filter(condition == "Static" & strain == Strain),aes(x = time,ymin=logCFUmean-logCFUse, ymax = logCFUmean+logCFUse), width = 0, size = 0.5)+
@@ -65,13 +65,11 @@ GraphGrowthCurveLog1<-function (Strain){
             axis.title.x = element_text(margin = margin(0,0,0,0),size=13 ),axis.text.x = element_text(margin = margin(1,0,2,0),size=11),
             axis.title.y = element_text(margin = margin(0,0,0,0),size=13),axis.text.y = element_text(margin = margin(0,0,0,0),size=11))
     
-    legend <- get_legend(shakingWtPlot + theme(legend.box.margin = margin(0, 0, 0, 35)))
+    legend <- get_legend(shakingWtPlot + theme(legend.box.margin = margin(0, 0, 0, 10)))
     prow <- plot_grid(shakingWtPlot+theme(legend.position="none"),staticWtPlot+theme(legend.position="none"),
                       align='v',labels = c("A", "B"),nrow = 1,label_size= 20, label_x = .02, label_y = 1)
-    plot_grid(prow,legend,rel_widths = c(3, 1))
-    
+    plot_grid(prow,legend,rel_widths = c(3,.6))
     }
-
 
 #Graph logs
 figure1AB<-GraphGrowthCurveLog1("wt")
@@ -172,7 +170,7 @@ figure1C<-ggplot()+
       #                          bquote(paste(italic('P. aeruginosa '), Delta*"pqsL mixed"))))+
       scale_x_discrete(name ="", breaks = c("static","shaking"), labels =c("Static","Mixed"))+
     ylim(0,17.5)+
-  labs( y = "Zone of inhibition (mm)", shape = "Growth condtion") +
+  labs( y = "Zone of inhibition (mm)", shape = "") +
       theme_cowplot(12)+
   theme(plot.margin = unit(c(.5,0,0,.3), "cm"),
         axis.text.x  = element_text(margin = margin(0,0,0,0),size=13),
@@ -191,10 +189,10 @@ figure1D<-ggplot()+
             axis.title.x = element_text(margin = margin(0,0,0,0),size=13),axis.text.x = element_text(margin = margin(1,0,0,0),size=11),
             axis.title.y = element_text(margin = margin(0,0,0,0),size=13),axis.text.y = element_text(margin = margin(0,0,2,0),size=11))
 
-legendFigure1C <- get_legend(figure1C + theme(legend.box.margin = margin(0, 0, 0, 35)))
+legendFigure1C <- get_legend(figure1C + theme(legend.box.margin = margin(0, 0, 0, 10)))
 plotsFigure1cd <- plot_grid(figure1C+theme(legend.position="none"),figure1D+theme(legend.position="none"),
                       align='vh',labels = c("C", "D"),hjust = -1,nrow = 1,label_size= 20)
-plot_grid(plotsFigure1cd,legendFigure1C,rel_widths = c(3, 1))
+plot_grid(plotsFigure1cd,legendFigure1C,rel_widths = c(3, .6))
 }   
 figure1CD<-GraphStaphKilling("wt","wt")
 figure2CD<-GraphStaphKilling("pqsl", "pqsL")
@@ -396,32 +394,26 @@ PlotFreqLogBin<-function(strain, itulo){
   ggplot()+
     geom_col(data = df, aes(x=LogBin,y=MeanFrequencyLogBin,  fill =ConditionNew ),size=4,position = position_dodge( width = .9))+
     geom_errorbar(data = df,aes(x=LogBin,ymin=MeanFrequencyLogBin-SEFrequencyLogBin, ymax = MeanFrequencyLogBin+SEFrequencyLogBin, group =ConditionNew ),width = 0, size= .5,position = position_dodge( width = .9))+
-    #labs(title = titulo)+
-    #scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-    
     facet_grid(.~Species)+
-    labs(fill = "Condition",y = "Aggregates per bin",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
+    labs(fill = "",y = "Aggregates per bin",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
     guides(color = FALSE)+
     scale_y_continuous(expand = expand_scale(mult = c(0, 0.05)))+
-    scale_fill_grey()+
+    scale_fill_grey(labels = c("Mono-culture", "Co-culture"))+
     theme_half_open()+
     theme(plot.title = element_text(hjust = 0.5),
-          strip.text = element_text(size = 9, face = "italic",margin = margin(.1,0,.1,0, "cm")),
+          strip.text = element_text(size = 9, face = "italic",margin = margin(.1,0,.1,0, "cm")),#this is for the facets
           strip.background = element_rect(color="black", fill="white", size=.5, linetype="solid"),
           plot.margin = unit(c(0,.5,0,.5), "cm"),
           axis.title.x = element_text(margin = margin(0,0,0,0),size=13),axis.text.x = element_text(margin = margin(1,0,0,0),size=11),
           axis.title.y = element_text(margin = margin(0,4,0,0),size=13),axis.text.y = element_text(margin = margin(0,2,2,0),size=11),
-          legend.title = element_text(size=13),legend.text = element_text(size = 11))
+          legend.title = element_text(size=13),legend.text = element_text(size = 11),
+          legend.position = c(0.79, 0.60))
 }
 figure1F<-PlotFreqLogBin("PA14wt", "WT")
 figure2F<-PlotFreqLogBin("PA14mut", "pqsL")
 #####
 figure1EF<-plot_grid(figure1E,figure1F,rel_widths = c(1,1.2),align='vh',labels = c("E", "F"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
 figure2EF<-plot_grid(figure2E,figure2F,rel_widths = c(1,1.2),align='vh',labels = c("E", "F"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
-
-
-
-
 ```
 
 ```{Make full figures 1 and 2}
@@ -432,9 +424,64 @@ plots <- align_plots(figure2AB, figure2CD,align = 'vh', axis = 'l')
 plot_grid(plots[[1]],plots[[2]],figure2EF, align='vh',nrow = 3, rel_heights = c(1,1,1.5))
 
 ```
+```{r figure 3}
+MixedAggregateBiomassPlot<-ggplot()+
+  #geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=PercentTotalBiomass ),size=1)+
+  geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=MeanTotalBiomass),shape = 1, size=4)+
+  geom_errorbar(data = combinedMixedAggData,aes(x=Strain.x,ymin=MeanTotalBiomass-SETotalBiomass, ymax =MeanTotalBiomass+SETotalBiomass),size=.2, width = 0)+
+  scale_shape_manual(values = c(1,2),name = "", limits=c("PA14wt","PA14mut"))+
+  scale_x_discrete(breaks=c("PA14wt","PA14mut"), 
+                   labels = c(bquote(paste(italic("P. aeruginosa"), " wt")), bquote(paste(italic(Delta*"pqsL")))))+
+    labs(y = "Mixed aggregates biomass (%)", x = "")+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5),legend.position="none")
+
+MixedAggregateFrequencyPlot<-  ggplot()+
+  #geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=PercentAggs ),size=1)+
+  geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=MeanAggs),size=4, shape = 1)+
+  geom_errorbar(data = combinedMixedAggData,aes(x=Strain.x,ymin=MeanAggs-SEAggs, ymax =MeanAggs+SEAggs),size=.2, width = 0)+
+  scale_shape_manual(values = c(1,2),name = "", limits=c("PA14wt","PA14mut"))+
+  scale_x_discrete(breaks=c("PA14wt","PA14mut"), 
+                     labels = c(bquote(paste(italic("P. aeruginosa"), " wt")),bquote(paste(italic(Delta*"pqsL")))))+
+  labs(y = "Mixed aggregates (% frequency)", x = "")+
+  ylim(0,10)+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5),legend.position="none")
+
+sa.paPlot<-
+  ggplot()+
+  geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),aes(y=meanEnrichment, x = Strain),size=4, shape = 1)+
+  geom_errorbar(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),
+                aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = 0)+
+  #labs( y = bquote(paste("Enrichment distance\n", italic("S. aureus") %->% italic("P. aeruginosa "),"("*mu*"m)")), x = "" ) +
+  labs(y = expression(atop("Enrichment distance ",paste(italic("S. aureus") %->% italic("P. aeruginosa "),"("*mu*"m)"))), x = "" ) +
+  scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),
+                     labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
+  scale_x_discrete(name ="", breaks = c("wt","mut"), 
+                   labels = c(bquote(paste(italic("P. aeruginosa"), " wt")), bquote(paste(italic(Delta*"pqsL")))))+
+  ylim(1, 9)+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5),legend.position="none")
+
+sa.saPlot<-
+  ggplot()+
+  geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Sa"),aes(y=meanEnrichment, x = Strain),size=4, shape = 1)+
+  geom_errorbar(data = enrichmentDataFinal %>% filter(Relation == "Sa->Sa"),
+                aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = 0)+
+  labs(y = expression(atop("Enrichment distance ",paste(italic("S. aureus") %->% italic("S. aureus "),"("*mu*"m)"))), x = "" ) +
+  scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
+                                bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
+  scale_x_discrete(name ="", breaks = c("wt","mut"), 
+                   labels = c(bquote(paste(italic("P. aeruginosa"), " wt")), bquote(paste(italic(Delta*"pqsL")))))+
+  ylim(1, 9)+
+  theme_cowplot()+
+  theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 
 
-
+figure7 <- plot_grid(MixedAggregateBiomassPlot,sa.saPlot,sa.paPlot,align='vh',labels = c("A","B", "C"),hjust = -1,nrow = 1)
+figure7
+```
 ```{r biomass per bin}
 PlotDensityLogBin<-function(strain,titulo){
   df <-hist.5.LogBinSummarize%>% filter(Strain == strain)
@@ -455,54 +502,44 @@ PlotDensityLogBin("PA14mut", "pqsL")
 
 ```
 ```{r Tobramycin}
-#data wrangling
-cleanSCFM2DataTobSa <- newSCFMDataSa %>% group_by(timePoint, antibiotic, culture) %>% summarise(meanCFUratio = mean(ratioCFU), sdCFUratio = sd(ratioCFU),meanLogRatio = mean(ratiolog), sdLogRatio = sd(ratiolog))
+#data is on "SaPa TOB growth curves.Rmd"
+#End point bar graph with std error
+tobCFUPlot<-
+  ggplot() +
+  geom_col(data = wilcoxDataGood, aes (x = culture, y = meanLog, fill = antibiotic, group = antibiotic), position = position_dodge( ))+
+  geom_linerange(data = wilcoxDataGood, aes(x = culture, ymin = meanLog - seLog, ymax = meanLog + seLog,group = antibiotic),position = position_dodge(width = .9))+
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.05)), breaks = c(0,2,4,6,8,10), labels =c(0,2,4,6,8,10))+
+  scale_x_discrete(name ="", breaks = c("mono","wt","mut"), 
+                   labels = c(expression(atop(italic("S. aureus"), paste("mono-culture"))), 
+                              expression(atop(italic("S. aureus +"), paste(italic("P. aeruginosa"), " wt"))), 
+                              expression(atop(italic("S. aureus +"), paste(italic("P. aeruginosa "*Delta*"pqsL"))))))+
+  labs(y = expression(paste(italic("S. aureus "), "CFU (",Log[10]),")"), x = "", fill = "") +
+  scale_fill_grey()+
+  theme_cowplot()+
+  theme_half_open()+
+  background_grid()
 
-#this is using CFUs
-ggplot()+
-  #geom_pointrange(data=cleanSCFM2DataTobSa,aes(x=timePoint, y = meanCFUratio, ymin = meanCFUratio - sdCFUratio, ymax = meanCFUratio + sdCFUratio, color = culture), size=1)+
-  geom_point(data=cleanSCFM2DataTobSa,aes(x=timePoint, y = meanCFUratio, color = culture), size=3)+
-  geom_errorbar(data=cleanSCFM2DataTobSa,aes(x=timePoint,ymin = meanCFUratio - sdCFUratio, ymax = meanCFUratio + sdCFUratio, color = culture), size=1)+
-  #geom_vline(xintercept=3, linetype = "dashed")+
-  scale_y_log10("Growth ratio compared to co-culture with wt", breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-  #annotate("text", x = 3, y = 10e6, label = "TOB added")+
-  facet_grid(.~antibiotic)+
-  labs(x = "Time (hours)", color="Culture condition", shape =  "Antiobiotic/Control") 
+tobPercentChangePlot<-
+  ggplot() +
+  geom_col(data = percentChange %>% filter(sample == "1-25-20"), aes (x = culture, y = 10^(MeanLogKill)))+
+  geom_linerange(data = percentChange, aes(x = culture, ymin = 10^(MeanLogKill - SeLogKill/2), ymax = 10^(MeanLogKill + SeLogKill/2)))+
+  scale_y_log10(expand = expand_scale(mult = c(0, 0.05)))+
+  scale_x_discrete(name ="", breaks = c("mono","wt","mut"), 
+                   labels = c(expression(atop(italic("S. aureus"), paste("mono-culture"))), 
+                              expression(atop(italic("S. aureus +"), paste(italic("P. aeruginosa"), " wt"))), 
+                              expression(atop(italic("S. aureus +"), paste(italic("P. aeruginosa "*Delta*"pqsL"))))))+
+  #labs(y = expression(atop("Enrichment distance ",paste(italic("S. aureus") %->% italic("S. aureus "),"("*mu*"m)"))), x = "" ) +
+  labs(y = expression(paste("Fold killing ", italic("S. aureus"))), x = "") +
+  scale_fill_grey()+
+  theme_cowplot()+
+  theme_half_open()+
+  background_grid()
 
-#This one is using logCFUs
-ggplot()+
-  geom_point(data=cleanSCFM2DataTobSa,aes(x=timePoint, y = meanLogRatio, color = culture), size=3)+
-  geom_errorbar(data=cleanSCFM2DataTobSa,aes(x=timePoint,ymin = meanLogRatio - sdLogRatio, ymax = meanLogRatio + sdLogRatio, color = culture), size=.5, width = 0)+
-  geom_hline(xintercept=3, linetype = "dashed")+
-  scale_y_continuous(limits = c(.6,1.6 ))+
-  #scale_y_log10("Growth ratio compared to co-culture with wt", breaks = scales::trans_breaks("log10", function(x) 10^x), labels = scales::trans_format("log10", scales::math_format(10^.x)),limits = c(10e-0.2,10e0.2))+
-  annotate("text", x = 3, y = 1.4, label = "TOB added")+
-  facet_grid(.~antibiotic)+
-  labs(x = "Time (hours)", color="Culture condition", shape =  "Antiobiotic/Control") +
-  theme_cowplot(12)
-
-GraphTOBGrowthCurveLog<-function (){
-    controlPlot<-ggplot()+
-      geom_point(data=cleanSCFM2DataTobSa %>% filter(antibiotic=="Control", culture != "wt"),aes(x=timePoint, y = meanLogRatio, shape = culture), size=3)+
-      geom_errorbar(data=cleanSCFM2DataTobSa%>% filter(antibiotic=="Control", culture != "wt"),aes(x=timePoint,ymin = meanLogRatio - sdLogRatio, ymax = meanLogRatio + sdLogRatio), size=.5, width = 0.2)+
-      geom_hline(yintercept=1, linetype = "dashed")+
-      scale_y_continuous(limits = c(.6,1.6 ))+
-      labs(x = "Time (hours)", shape="Culture condition", y = "Log Growth ratio compared to wild-type co-culture ") +
-      theme_cowplot(12)
-    
-    tobPlot<-ggplot()+
-      geom_point(data=cleanSCFM2DataTobSa %>% filter(antibiotic=="TOB", culture != "wt"),aes(x=timePoint, y = meanLogRatio, shape = culture), size=3)+
-      geom_errorbar(data=cleanSCFM2DataTobSa%>% filter(antibiotic=="TOB", culture != "wt"),aes(x=timePoint,ymin = meanLogRatio - sdLogRatio, ymax = meanLogRatio + sdLogRatio), size=.5, width = 0.2)+
-      scale_y_continuous(limits = c(.6,1.6 ))+
-      geom_hline(yintercept=1, linetype = "dashed")+
-      labs(x = "Time (hours)", y = "", color="Culture condition") +
-      theme_cowplot(12)
-    
-    legend <- get_legend(controlPlot + theme(legend.box.margin = margin(0, 200, 300,0)))
-    prow <- plot_grid(controlPlot+theme(legend.position="none"),tobPlot+theme(legend.position="none"),align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
-    plot_grid(prow,legend,rel_widths = c(3, .4))
-    }
-GraphTOBGrowthCurveLog()
+prow <- plot_grid(tobCFUPlot+theme(legend.position="none"),tobPercentChangePlot+theme(legend.position="none"),align='vh',labels = c("A", "B"),hjust = -1,nrow = 1)
+legend <- get_legend(tobCFUPlot + theme(legend.box.margin = margin(0, 0, 0, -6)))
+plot_grid(prow,legend,rel_widths = c(3, .4))
+#this is the winner
+plot_grid(tobCFUPlot+theme(legend.position="none"),legend,tobPercentChangePlot+theme(legend.position="none"),align='vh',labels = c("A", "","B"),hjust = -1,nrow = 1,rel_widths = c(1,.15,1))
 ```
 ```{r biomass}
 GraphGrowthCurvesExpClean(cleanResults1 %>% filter(TimePoint<10),cleanResultsStats1%>% filter(TimePoint<10), "Sa")
