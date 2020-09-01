@@ -284,7 +284,7 @@ ggplot()+
   geom_col(data = hist.plank.Agg.Stats %>% filter(Strain == strain),aes(x=Aggregation,y=MeanBiomass*100, fill = ConditionNew),
            size=3,position = position_dodge( width = .9),show.legend = FALSE)+
   geom_errorbar(data = hist.plank.Agg.Stats%>% filter(Strain == strain),aes(x=Aggregation,ymin=(MeanBiomass-SEBiomass)*100, ymax = (MeanBiomass+SEBiomass)*100, group = ConditionNew),width = 0, size=.5,position = position_dodge(width = .9))+
-  scale_y_continuous(expand = expand_scale(mult = c(0, 0.05)))+
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.2)))+
   facet_grid(.~Species)+
   scale_fill_grey()+
   labs(title = '', x = "", y = "Biomass contribution (%)")+
@@ -298,7 +298,7 @@ figure1E<-PlotAggsPlank("PA14wt", "wt")
 figure2E<-PlotAggsPlank("PA14mut", "pqsL")
 #####
 
-#get data frequency bins
+#get data frequency bins THIS WAS substituted by counts percentage
 #####
 hist.5.LogBinData<-hist.5 %>% filter(!max == 5)%>%  group_by(Sample,Species,Condition,Strain)%>% 
   mutate(LogBin = case_when(max <= 10 ~ "(5, 10]",
@@ -323,9 +323,8 @@ hist.5.LogBinSummarize$LogBin <- factor(hist.5.LogBinSummarize$LogBin, levels = 
 hist.5.LogBinSummarize$Species <- factor(hist.5.LogBinSummarize$Species, levels = c("Pa", "Sa"),
                   labels = c('P. aeruginosa','S. aureus'))
 hist.5.LogBinSummarize$ConditionNew <- factor(hist.5.LogBinSummarize$ConditionNew, levels = c("Mono", "Co"))
-
-
 #####
+
 #t tests frequency bins
 #####
 SaWtMono5<-hist.5.LogBinData %>%filter(Condition == "Sa Mono", Strain == "PA14wt",LogBin == "(5, 10]") %>% pull(FrequencyLogBin)
@@ -379,14 +378,13 @@ PaMonoWtMut100<-t.test(x = PaMutMono100, y = PaWtMono100, paired = F)
 PaCoWtMut5<-t.test(x = PaMutCo5, y = PaWtCo5, paired = F)
 PaCoWtMut10<-t.test(x = PaMutCo10, y = PaWtCo10, paired = F)
 PaCoWtMut100<-t.test(x = PaMutCo100, y = PaWtCo100, paired = F)
-
-
-
+#t-tests table
 tTestDatAggSizes<-list(SaWt5,SaWt10,SaMut5,SaMut10,PaWt5,PaWt10,PaMut5,PaMut10,SaWtMut5,SaWtMut10,
                        PaMonoWtMut5,PaMonoWtMut10,PaMonoWtMut100,PaCoWtMut5,PaCoWtMut10,PaCoWtMut100)
 tTestAggSizesTable<-bind_rows(map(tTestDatAggSizes, TtestTable))
 
 #####
+
 #plot frequency bins
 #####
 PlotFreqLogBin<-function(strain, itulo){
@@ -397,7 +395,7 @@ PlotFreqLogBin<-function(strain, itulo){
     facet_grid(.~Species)+
     labs(fill = "",y = "Aggregates per bin",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
     guides(color = FALSE)+
-    scale_y_continuous(expand = expand_scale(mult = c(0, 0.05)))+
+    scale_y_continuous(expand = expand_scale(mult = c(0, 0.2)))+
     scale_fill_grey(labels = c("Mono-culture", "Co-culture"))+
     theme_half_open()+
     theme(plot.title = element_text(hjust = 0.5),
@@ -412,8 +410,126 @@ PlotFreqLogBin<-function(strain, itulo){
 figure1F<-PlotFreqLogBin("PA14wt", "WT")
 figure2F<-PlotFreqLogBin("PA14mut", "pqsL")
 #####
+
+#get data frequency bins proportion
+#####
+tESThist.5.LogBinData<-hist.5 %>% filter(!max == 5)%>%  group_by(Sample,Species,Condition,Strain)%>% 
+  mutate(LogBin = case_when(max <= 10 ~ "(5, 10]",
+                            max<= 100    ~ "(10, 100]",
+                            max > 100 ~ paste0("(100, ",bquote("\U221E"), ")")), AggOnlyBiomass = sum(suma), AggOnlyAggregates = sum(frequency)) %>% ungroup() 
+
+test1<-tESThist.5.LogBinData%>% 
+  group_by(Species, Sample,Condition,ConditionNew,Strain,LogBin) %>% 
+  summarize(FrequencyLogBin = sum(frequency),DensityLogBin = (FrequencyLogBin)/AggOnlyAggregates) %>%  ungroup() %>%
+  group_by(Species, Condition,ConditionNew,Strain,LogBin) %>%
+mutate(MeanFrequencyLogBin = mean(FrequencyLogBin),SEFrequencyLogBin = std.error(FrequencyLogBin),
+          MeanDensityLogBin = mean(DensityLogBin), SEDensityLogBin = std.error(DensityLogBin))
+          
+test1check<-test1 %>% filter(Species == "Sa", ConditionNew == "Mono", Strain == "PA14wt")
+test1check1<-distinct(test1check) %>% group_by(Sample) %>% mutate(suma = sum(DensityLogBin))
+
+test1Unique<-distinct(test1)
+#rows below add 
+new.rowWt.frequency <- data.frame(Species = 'Sa', Condition = "Pa:Sa 1:1",ConditionNew = "Co",Strain = "PA14wt", LogBin =paste0("(100, ",bquote("\U221E"), ")"), MeanDensityLogBin = 0,SEDensityLogBin = 0)
+new.rowMut.frequency <- data.frame(Species = 'Sa', Condition = "Pa:Sa 1:1",ConditionNew = "Co",Strain = "PA14mut", LogBin =paste0("(100, ",bquote("\U221E"), ")"), MeanDensityLogBin = 0,SEDensityLogBin = 0)
+test1Unique<-rbind(test1Unique, new.rowWt.frequency)
+test1Unique<-rbind(test1Unique, new.rowMut.frequency)
+
+test1Unique$LogBin <- factor(test1Unique$LogBin, levels = c("(5, 10]","(10, 100]",paste0("(100, ",bquote("\U221E"), ")")))
+test1Unique$ConditionNew <- factor(test1Unique$ConditionNew, levels = c("Mono", "Co"))
+#####
+
+#t-tests for frequency bins proportion
+#####
+SaWtMono5.proportion<-test1Unique %>%filter(Condition == "Sa Mono", Strain == "PA14wt",LogBin == "(5, 10]") %>% pull(DensityLogBin)
+SaMutMono5.proportion<-test1Unique %>%filter(Condition == "Sa Mono", Strain == "PA14mut",LogBin == "(5, 10]") %>% pull(DensityLogBin)
+SaWtMono10.proportion<-test1Unique %>%filter(Condition == "Sa Mono", Strain == "PA14wt",LogBin == "(10, 100]") %>% pull(DensityLogBin)
+SaMutMono10.proportion<-test1Unique %>%filter(Condition == "Sa Mono", Strain == "PA14mut",LogBin == "(10, 100]") %>% pull(DensityLogBin)
+
+SaWtCo5.proportion<-test1Unique %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14wt",LogBin == "(5, 10]") %>% pull(DensityLogBin)
+SaMutCo5.proportion<-test1Unique %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14mut",LogBin == "(5, 10]") %>% pull(DensityLogBin)
+SaWtCo10.proportion<-test1Unique %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14wt",LogBin == "(10, 100]") %>% pull(DensityLogBin)
+SaMutCo10.proportion<-test1Unique %>%filter(Species =="Sa", ConditionNew == "Co", Strain == "PA14mut",LogBin == "(10, 100]") %>% pull(DensityLogBin)
+SaWtCo100.proportion<-test1Unique %>%filter(Species =="Sa", ConditionNew == "Co", Strain=="PA14wt",LogBin == paste0("(100, ",bquote("\U221E"), ")")) %>% pull(DensityLogBin)
+SaMutCo100.proportion<-test1Unique %>%filter(Species =="Sa", ConditionNew == "Co", Strain=="PA14mut",LogBin == paste0("(100, ",bquote("\U221E"), ")")) %>% pull(DensityLogBin)
+
+PaWtMono5.proportion<-test1Unique %>%filter(Condition == "Pa Mono", Strain == "PA14wt",LogBin == "(5, 10]") %>% pull(DensityLogBin)
+PaMutMono5.proportion<-test1Unique %>%filter(Condition == "Pa Mono", Strain == "PA14mut",LogBin == "(5, 10]") %>% pull(DensityLogBin)
+PaWtMono10.proportion<-test1Unique %>%filter(Condition == "Pa Mono", Strain == "PA14wt",LogBin == "(10, 100]") %>% pull(DensityLogBin)
+PaMutMono10.proportion<-test1Unique %>%filter(Condition == "Pa Mono", Strain == "PA14mut",LogBin == "(10, 100]") %>% pull(DensityLogBin)
+PaWtMono100.proportion<-test1Unique %>%filter(Condition == "Pa Mono", Strain == "PA14wt",LogBin == paste0("(100, ",bquote("\U221E"), ")")) %>% pull(DensityLogBin)
+PaMutMono100.proportion<-test1Unique %>%filter(Condition == "Pa Mono", Strain == "PA14mut",LogBin == paste0("(100, ",bquote("\U221E"), ")")) %>% pull(DensityLogBin)
+
+PaWtCo5.proportion<-test1Unique %>%filter(Species =="Pa", ConditionNew == "Co", Strain == "PA14wt",LogBin == "(5, 10]") %>% pull(DensityLogBin)
+PaMutCo5.proportion<-test1Unique %>%filter(Species =="Pa", ConditionNew == "Co", Strain == "PA14mut",LogBin == "(5, 10]") %>% pull(DensityLogBin)
+PaWtCo10.proportion<-test1Unique %>%filter(Species =="Pa", ConditionNew == "Co", Strain == "PA14wt",LogBin == "(10, 100]") %>% pull(DensityLogBin)
+PaMutCo10.proportion<-test1Unique %>%filter(Species =="Pa", ConditionNew == "Co", Strain == "PA14mut",LogBin == "(10, 100]") %>% pull(DensityLogBin)
+PaWtCo100.proportion<-test1Unique %>%filter(Species =="Pa",ConditionNew=="Co",Strain == "PA14wt",LogBin == paste0("(100, ",bquote("\U221E"), ")")) %>% pull(DensityLogBin)
+PaMutCo100.proportion<-test1Unique %>%filter(Species =="Pa",ConditionNew=="Co",Strain == "PA14mut",LogBin==paste0("(100, ",bquote("\U221E"), ")")) %>% pull(DensityLogBin)
+
+#mono vs Co
+SaWt5.proportion<-t.test(x = SaWtMono5.proportion, y = SaWtCo5.proportion, paired = T)
+SaWt10.proportion<-t.test(x = SaWtMono10.proportion, y = SaWtCo10.proportion, paired = T)
+SaMut5.proportion<-t.test(x = SaMutMono5.proportion, y = SaMutCo5.proportion, paired = T)
+SaMut10.proportion<-t.test(x = SaMutMono10.proportion, y = SaMutCo10.proportion, paired = T)
+
+PaWt5.proportion<-t.test(x = PaWtMono5.proportion, y = PaWtCo5.proportion, paired = T)
+PaWt10.proportion<-t.test(x = PaWtMono10.proportion, y = PaWtCo10.proportion, paired = T)
+#PaWt100<-t.test(x = PaWtMono100, y = PaWtCo100, paired = T)
+PaMut5.proportion<-t.test(x = PaMutMono5.proportion, y = PaMutCo5.proportion, paired = T)
+PaMut10.proportion<-t.test(x = PaMutMono10.proportion, y = PaMutCo10.proportion, paired = T)
+#PaMut100<-t.test(x = PaMutMono100, y = PaMutCo100, paired = T)
+
+#Wt vs pqsL
+SaWtMut5.proportion<-t.test(x = SaMutCo5.proportion, y = SaWtCo5.proportion, paired = F)
+SaWtMut10.proportion<-t.test(x = SaMutCo10.proportion, y = SaWtCo10.proportion, paired = F)
+#SaWtMut100<-t.test(x = SaMutCo100, y = SaWtCo100, paired = F)
+
+PaMonoWtMut5.proportion<-t.test(x = PaMutMono5.proportion, y = PaWtMono5.proportion, paired = F)
+PaMonoWtMut10.proportion<-t.test(x = PaMutMono10.proportion, y = PaWtMono10.proportion, paired = F)
+PaMonoWtMut100.proportion<-t.test(x = PaMutMono100.proportion, y = PaWtMono100.proportion, paired = F)
+
+PaCoWtMut5.proportion<-t.test(x = PaMutCo5.proportion, y = PaWtCo5.proportion, paired = F)
+PaCoWtMut10.proportion<-t.test(x = PaMutCo10.proportion, y = PaWtCo10.proportion, paired = F)
+PaCoWtMut100.proportion<-t.test(x = PaMutCo100.proportion, y = PaWtCo100.proportion, paired = F)
+#t-tests table
+tTestDatAggSizes.proportion<-list(SaWt5.proportion,SaWt10.proportion,SaMut5.proportion,SaMut10.proportion,PaWt5.proportion,PaWt10.proportion,PaMut5.proportion,
+                       PaMut10.proportion,SaWtMut5.proportion,SaWtMut10.proportion,PaMonoWtMut5.proportion,PaMonoWtMut10.proportion,PaMonoWtMut100.proportion,
+                       PaCoWtMut5.proportion,PaCoWtMut10.proportion,PaCoWtMut100.proportion)
+tTestAggSizesTable.proportion<-bind_rows(map(tTestDatAggSizes.proportion, TtestTable))
+
+#####
+
+#plot frequency bins proportion
+test1Unique$Species <- factor(test1Unique$Species, levels = c("Pa", "Sa"),
+                                         labels = c('P. aeruginosa','S. aureus'))
+PlotFreqLogBinProp<-function(strain){
+  df <-test1Unique%>% filter(Strain == strain)
+  ggplot()+
+    geom_col(data = df, aes(x=LogBin,y=MeanDensityLogBin*100,  fill =ConditionNew ),size=4,position = position_dodge( width = .9))+
+    geom_errorbar(data = df,aes(x=LogBin,ymin=(MeanDensityLogBin-SEDensityLogBin)*100, ymax = (MeanDensityLogBin+SEDensityLogBin)*100, group = ConditionNew),width = 0, size= .5,position = position_dodge( width = .9))+
+    facet_grid(.~Species)+
+    labs(fill = "",y = "Aggregates per bin (% of total)",x = bquote(paste("Aggregate Volume (", mu*"m"^3*")")))+
+    guides(color = FALSE)+
+    scale_y_continuous(expand = expand_scale(mult = c(0, 0.2)))+
+    scale_fill_grey(labels = c("Mono-culture", "Co-culture"))+
+    theme_half_open()+
+    theme(plot.title = element_text(hjust = 0.5),
+          strip.text = element_text(size = 9, face = "italic",margin = margin(.1,0,.1,0, "cm")),#this is for the facets
+          strip.background = element_rect(color="black", fill="white", size=.5, linetype="solid"),
+          plot.margin = unit(c(0,.5,0,.5), "cm"),
+          axis.title.x = element_text(margin = margin(0,0,0,0),size=13),axis.text.x = element_text(margin = margin(1,0,0,0),size=11),
+          axis.title.y = element_text(margin = margin(0,4,0,0),size=13),axis.text.y = element_text(margin = margin(0,2,2,0),size=11),
+          legend.title = element_text(size=13),legend.text = element_text(size = 11),
+          legend.position = c(0.79, 0.60))
+  }
+figure1F<-PlotFreqLogBinProp("PA14wt")
+figure2F<-PlotFreqLogBinProp("PA14mut")
+
 figure1EF<-plot_grid(figure1E,figure1F,rel_widths = c(1,1.2),align='vh',labels = c("E", "F"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
 figure2EF<-plot_grid(figure2E,figure2F,rel_widths = c(1,1.2),align='vh',labels = c("E", "F"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
+
+
 ```
 
 ```{Make full figures 1 and 2}
@@ -422,7 +538,6 @@ plot_grid(plots[[1]],plots[[2]],figure1EF, align='vh',nrow = 3, rel_heights = c(
 
 plots <- align_plots(figure2AB, figure2CD,align = 'vh', axis = 'l')
 plot_grid(plots[[1]],plots[[2]],figure2EF, align='vh',nrow = 3, rel_heights = c(1,1,1.5))
-
 ```
 ```{r figure 3}
 MixedAggregateBiomassPlot<-ggplot()+
@@ -441,45 +556,50 @@ MixedAggregateFrequencyPlot<-  ggplot()+
   geom_point(data = combinedMixedAggData,aes(x=Strain.x,y=MeanAggs),size=4, shape = 1)+
   geom_errorbar(data = combinedMixedAggData,aes(x=Strain.x,ymin=MeanAggs-SEAggs, ymax =MeanAggs+SEAggs),size=.2, width = 0)+
   scale_shape_manual(values = c(1,2),name = "", limits=c("PA14wt","PA14mut"))+
-  scale_x_discrete(breaks=c("PA14wt","PA14mut"), 
-                     labels = c(bquote(paste(italic("P. aeruginosa"), " wt")),bquote(paste(italic(Delta*"pqsL")))))+
+  scale_x_discrete(name =expression(italic("P. aeruginosa")), breaks=c("PA14wt","PA14mut"), 
+                     labels = c("wt",bquote(paste(italic(Delta*"pqsL")))))+
   labs(y = "Mixed aggregates (% frequency)", x = "")+
   ylim(0,10)+
   theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 
+#the enrichment data is on "propOc Data 3D.Rmd" but I changed the distance for Sa Sa to 1 because this is just the range
+enrichmentDataSpreadsheet<-read.csv("/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Spatial paper Data/Prop Oc Final Data/Enrichment distance.csv",header = TRUE)
+enrichmentDataSpreadsheet$Strain<-as.factor(enrichmentDataSpreadsheet$Strain)
+enrichmentDataSpreadsheet$Strain <- factor(enrichmentDataSpreadsheet$Strain, levels = c("wt","mut"))
+
 sa.paPlot<-
   ggplot()+
-  geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),aes(y=meanEnrichment, x = Strain),size=4, shape = 1)+
-  geom_errorbar(data = enrichmentDataFinal %>% filter(Relation == "Sa->Pa"),
+  geom_point(data = enrichmentDataSpreadsheet %>% filter(Relation == "Sa->Pa"),aes(y=meanEnrichment, x = Strain),size=4, shape = 1)+
+  geom_errorbar(data = enrichmentDataSpreadsheet %>% filter(Relation == "Sa->Pa"),
                 aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = 0)+
   #labs( y = bquote(paste("Enrichment distance\n", italic("S. aureus") %->% italic("P. aeruginosa "),"("*mu*"m)")), x = "" ) +
-  labs(y = expression(atop("Enrichment distance ",paste(italic("S. aureus") %->% italic("P. aeruginosa "),"("*mu*"m)"))), x = "" ) +
+  labs(y = expression(atop("Enrichment distance ",paste(italic("S. aureus") %->% italic("P. aeruginosa "),"("*mu*"m)")))) +
   scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),
                      labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
                                 bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
-  scale_x_discrete(name ="", breaks = c("wt","mut"), 
-                   labels = c(bquote(paste(italic("P. aeruginosa"), " wt")), bquote(paste(italic(Delta*"pqsL")))))+
-  ylim(1, 9)+
+  scale_x_discrete(name =expression(italic("P. aeruginosa")), breaks = c("wt","mut"), 
+                   labels = c("wt", bquote(paste(italic(Delta*"pqsL")))))+
+  ylim(0, 10)+
   theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 
 sa.saPlot<-
   ggplot()+
-  geom_point(data = enrichmentDataFinal %>% filter(Relation == "Sa->Sa"),aes(y=meanEnrichment, x = Strain),size=4, shape = 1)+
-  geom_errorbar(data = enrichmentDataFinal %>% filter(Relation == "Sa->Sa"),
+  geom_point(data = enrichmentDataSpreadsheet %>% filter(Relation == "Sa->Sa"),aes(y=meanEnrichment, x = Strain),size=4, shape = 1)+
+  geom_errorbar(data = enrichmentDataSpreadsheet %>% filter(Relation == "Sa->Sa"),
                 aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = 0)+
   labs(y = expression(atop("Enrichment distance ",paste(italic("S. aureus") %->% italic("S. aureus "),"("*mu*"m)"))), x = "" ) +
   scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
                                 bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
-  scale_x_discrete(name ="", breaks = c("wt","mut"), 
-                   labels = c(bquote(paste(italic("P. aeruginosa"), " wt")), bquote(paste(italic(Delta*"pqsL")))))+
-  ylim(1, 9)+
+  scale_x_discrete(name =expression(italic("P. aeruginosa")), breaks = c("wt","mut"), 
+                   labels = c("wt", bquote(paste(italic(Delta*"pqsL")))))+
+  ylim(0, 10)+
   theme_cowplot()+
   theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 
 
-figure7 <- plot_grid(MixedAggregateBiomassPlot,sa.saPlot,sa.paPlot,align='vh',labels = c("A","B", "C"),hjust = -1,nrow = 1)
+figure7 <- plot_grid(MixedAggregateFrequencyPlot,sa.saPlot,sa.paPlot,align='vh',labels = c("A","B", "C"),hjust = -1,nrow = 1)
 figure7
 ```
 ```{r biomass per bin}
@@ -504,7 +624,7 @@ PlotDensityLogBin("PA14mut", "pqsL")
 ```{r Tobramycin}
 #data is on "SaPa TOB growth curves.Rmd"
 #End point bar graph with std error
-tobCFUPlot<-
+tobCFUPlot<- 
   ggplot() +
   geom_col(data = wilcoxDataGood, aes (x = culture, y = meanLog, fill = antibiotic, group = antibiotic), position = position_dodge( ))+
   geom_linerange(data = wilcoxDataGood, aes(x = culture, ymin = meanLog - seLog, ymax = meanLog + seLog,group = antibiotic),position = position_dodge(width = .9))+
@@ -513,7 +633,7 @@ tobCFUPlot<-
                    labels = c(expression(atop(italic("S. aureus"), paste("mono-culture"))), 
                               expression(atop(italic("S. aureus +"), paste(italic("P. aeruginosa"), " wt"))), 
                               expression(atop(italic("S. aureus +"), paste(italic("P. aeruginosa "*Delta*"pqsL"))))))+
-  labs(y = expression(paste(italic("S. aureus "), "CFU (",Log[10]),")"), x = "", fill = "") +
+  labs(y = expression(paste(italic("S. aureus ("), Log[10]," CFU)")), x = "", fill = "") +
   scale_fill_grey()+
   theme_cowplot()+
   theme_half_open()+
