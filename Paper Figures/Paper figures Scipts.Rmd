@@ -65,7 +65,7 @@ GraphGrowthCurveLog1<-function (Strain){
             axis.title.x = element_text(margin = margin(0,0,0,0),size=13 ),axis.text.x = element_text(margin = margin(1,0,2,0),size=11),
             axis.title.y = element_text(margin = margin(0,0,0,0),size=13),axis.text.y = element_text(margin = margin(0,0,0,0),size=11))
     
-    legend <- get_legend(shakingWtPlot + theme(legend.box.margin = margin(0, 0, 0, 10)))
+    legend <- get_legend(shakingWtPlot + theme(legend.box.margin = margin(0, 0, 0, 0)))
     prow <- plot_grid(shakingWtPlot+theme(legend.position="none"),staticWtPlot+theme(legend.position="none"),
                       align='v',labels = c("A", "B"),nrow = 1,label_size= 20, label_x = .02, label_y = 1)
     plot_grid(prow,legend,rel_widths = c(3,.6))
@@ -74,7 +74,6 @@ GraphGrowthCurveLog1<-function (Strain){
 #Graph logs
 figure1AB<-GraphGrowthCurveLog1("wt")
 figure2AB<-GraphGrowthCurveLog1("mut")
-
 ```
 ```{r Figures 1cd, and 2cd}
 #data disk difussion
@@ -116,27 +115,27 @@ tTestDiskDifussionTable<-bind_rows(map(tTestDataDiskDifussion, TtestTable))
 
 #luminesscence data
 #####
-luminescenceFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Staph killing assays/summary.csv"
-luminescenceData <-read.csv(luminescenceFile)
-luminescenceData<-luminescenceData %>% group_by(TimePoint, BioReplicate, Condition, Strain) %>% mutate(techMean = mean(Luminescence)) %>% ungroup() %>% group_by(TimePoint, Condition, Strain) %>% mutate(Mean = mean(techMean), SE =std.error(techMean)) %>% ungroup()
-#luminescenceData1<-luminescenceData %>%  
-#mutate(LogTotals = ifelse(Totals>0, log10(Totals), 0))#this adds up all the data on each slice and then gets the log of that total
-
+luminescenceFile<-"/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Staph killing assays/summary.csv" 
+luminescenceData <-read.csv(luminescenceFile) 
+luminescenceData<-luminescenceData %>% group_by(TimePoint, Condition, Strain) %>% mutate(Mean = mean(Luminescence), SE =std.error(Luminescence)) %>% ungroup()
+write.csv(luminescenceData1, "/Users/jupabago/Documents/Whiteley/PROJECTS/PaSaProject/Staph killing assays/summary2.csv")
 luminescenceData1<-luminescenceData %>% mutate(
   CondStrain = case_when(
     Condition == "shaking" & Strain == "pqsL" ~ "pqsLShake",
     Condition == "shaking" & Strain == "wt"~ "wtShake",
     Condition == "static" & Strain == "pqsL"~ "pqsLStat",
     Condition == "static" & Strain == "wt"~ "wtStat"))
+luminescenceData1<-luminescenceData1 %>%  mutate(LogTotals = ifelse(Luminescence>0, log10(Luminescence), 0), rep = (4*(TechReplicate-1))+BioReplicate)#this adds up all the data on each slice and then gets the log of that total
 #####
+
 
 #luminescence t-tests
 #####
-wtStatLuminescence<-luminescenceData1 %>% filter (CondStrain == "wtStat") %>% filter (TimePoint<7 &TechReplicate == 1)  %>% pull(techMean)
-wtMixedLuminescence<-luminescenceData1 %>% filter (CondStrain == "wtShake") %>% filter (TimePoint<7 &TechReplicate == 1) %>% pull(techMean)
+wtStatLuminescence<-luminescenceData1 %>% filter (CondStrain == "wtStat") %>% filter (TimePoint==10 &TechReplicate == 1)  %>% pull(LogTotals) 
+wtMixedLuminescence<-luminescenceData1 %>% filter (CondStrain == "wtShake") %>% filter (TimePoint==10 &TechReplicate == 1) %>% pull(LogTotals)
 
-mutStatLuminescence<-luminescenceData1 %>% filter (CondStrain == "pqsLStat") %>% filter (TimePoint<7 &TechReplicate == 1)%>% pull(techMean)
-mutMixedLuminescence<-luminescenceData1 %>% filter (CondStrain == "pqsLShake") %>% filter (TimePoint<7 &TechReplicate == 1)%>% pull(techMean)
+mutStatLuminescence<-luminescenceData1 %>% filter (CondStrain == "pqsLStat") %>% filter (TimePoint==10 &TechReplicate == 1)%>% pull(LogTotals)
+mutMixedLuminescence<-luminescenceData1 %>% filter (CondStrain == "pqsLShake") %>% filter (TimePoint==10 &TechReplicate == 1)%>% pull(LogTotals)
 
 tTestWtLuminescence<-t.test(x = wtStatLuminescence, y = wtMixedLuminescence, paired = T)
 tTestMutLuminescence<-t.test(x = mutStatLuminescence, y = mutMixedLuminescence, paired = T)
@@ -153,35 +152,73 @@ TtestTable<-name <- function(dataPoint) {
   data <-data.frame(dataPoint$data.name, dataPoint$p.value)
 }
 tTestLuminescenceTable<-bind_rows(map(tTestDataLuminescence, TtestTable))
-#####
+#this is only comparing the last time point of the log transformed data
 
+timePoints<-seq(1,10)
+
+DoLm<-function(condstrain, bio){
+  rep1Data<-luminescenceData1 %>% filter (CondStrain == condstrain, rep == bio) %>% filter(TimePoint > 1) %>% filter(TimePoint<8)
+  #rep1Data<-luminescenceData1 %>% filter (CondStrain == condstrain, rep == bio) %>% filter(TimePoint<7) 
+  timePoints<-unique(rep1Data$TimePoint)
+  rep1lm<- lm(rep1Data$LogTotals ~ timePoints)
+  return(as.numeric(rep1lm$coefficients[[2]]))}
+
+wtStatLuminescenceSlope<- unlist(map2("wtStat", seq(1,8), DoLm))
+wtMixedLuminescenceSlope<- unlist(map2("wtShake", seq(1,8), DoLm))
+mutStatLuminescenceSlope<- unlist(map2("pqsLStat", seq(1,8), DoLm))
+mutMixedLuminescenceSlope<- unlist(map2("pqsLShake", seq(1,8), DoLm))
+#Anova
+blah<-combine(wtStatLuminescenceSlope,wtMixedLuminescenceSlope,mutStatLuminescenceSlope,mutMixedLuminescenceSlope)
+res.aov <- aov(data ~ source, data = blah)
+# Summary of the analysis
+summary(res.aov)
+TukeyHSD(res.aov)
+
+#t-tests
+tTestWtLuminescenceSlope<-t.test(x = wtStatLuminescenceSlope, y = wtMixedLuminescenceSlope, paired = T)
+tTestMutLuminescenceSlope<-t.test(x = mutStatLuminescenceSlope, y = mutMixedLuminescenceSlope, paired = T)
+
+tTestStatLuminescenceSlope<-t.test(x = wtStatLuminescenceSlope, y = mutStatLuminescenceSlope, paired = T)
+tTestMixedLuminescenceSlope<-t.test(x = wtMixedLuminescenceSlope, y = mutMixedLuminescenceSlope, paired = T)
+
+tTestWtStatVSMutMixedLuminescenceSlope<-t.test(x = wtStatLuminescenceSlope, y = mutMixedLuminescenceSlope, paired = T)
+tTestMutStatVSWtMixedLuminescenceSlope<-t.test(x = wtMixedLuminescenceSlope, y = mutStatLuminescenceSlope, paired = T)
+
+tTestDataLuminescenceSlope<-list(tTestWtLuminescenceSlope,tTestMutLuminescenceSlope,tTestStatLuminescenceSlope,tTestMixedLuminescenceSlope,
+                            tTestWtStatVSMutMixedLuminescenceSlope,tTestMutStatVSWtMixedLuminescenceSlope)
+
+tTestLuminescenceTableLast<-bind_rows(map(tTestDataLuminescenceSlope, TtestTable))
+
+tTestLuminescenceTableLast
+#####
 
 #plot disk difussion and luminescence 
 #####
 GraphStaphKilling<-function(Strain1,Strain2){ 
 figure1C<-ggplot()+
       geom_errorbar(data=diskDataStats1 %>% filter (strain == Strain1), aes(x = condition, ymin = meanBio - SDBio, ymax = meanBio + SDBio),width = 0)+
-      geom_point(data=diskDataStats1 %>% filter (strain == Strain1), aes(x=condition, y=meanBio, shape =condition), size=3)+
-      scale_shape_manual(values = c(1,2),limits=c("shaking","static"), 
-                     labels = c(bquote(paste(italic('P. aeruginosa'), " mixed")),
-                                bquote(paste(italic('P. aeruginosa'), " static"))))+
+      geom_point(data=diskDataStats1 %>% filter (strain == Strain1), aes(x=condition, y=meanBio), size=3)+
+      #scale_shape_manual(values = c(1,2),limits=c("shaking","static"), labels = c(bquote(paste(italic('P. aeruginosa'), " mixed")),bquote(paste(italic('P. aeruginosa'), " static"))))+
   #scale_shape_manual(values = c(16,17),limits=c("static", "shaking"), 
       #               labels = c(bquote(paste(italic('P. aeruginosa '), Delta*"pqsL static")),
       #                          bquote(paste(italic('P. aeruginosa '), Delta*"pqsL mixed"))))+
-      scale_x_discrete(name ="", breaks = c("static","shaking"), labels =c("Static","Mixed"))+
-    ylim(0,17.5)+
+      scale_x_discrete(name =expression(paste(italic('P. aeruginosa'), 'culture')), breaks = c("static","shaking"), labels =c("Static","Mixed"))+
+    ylim(0,15.1)+
   labs( y = "Zone of inhibition (mm)", shape = "") +
       theme_cowplot(12)+
-  theme(plot.margin = unit(c(.5,0,0,.3), "cm"),
+  
+  theme(plot.margin = unit(c(.5,.5,0,.5), "cm"),
         axis.text.x  = element_text(margin = margin(0,0,0,0),size=13),
-        axis.title.y = element_text(margin = margin(0,0,0,0),size=13),axis.text.y = element_text(margin = margin(0,0,2,0),size=11),
+        axis.title.y = element_text(margin = margin(0,0,0,0),size=13),
+        axis.text.y = element_text(margin = margin(0,0,2,0),size=11),
         legend.title = element_text(size=13),legend.text = element_text(size = 11))
+        #legend.position = c(0.79, 0.60))
 
 figure1D<-ggplot()+
       geom_line(data=luminescenceData1 %>% filter (Strain == Strain2) %>% filter (TimePoint<7), aes(x=TimePoint, y=Mean, group = Condition), size=.5, show.legend = FALSE)+
       geom_point(data=luminescenceData1%>% filter (Strain == Strain2) %>% filter (TimePoint<7), aes(x=TimePoint, y=Mean, shape = Condition), size=3)+
       geom_errorbar(data=luminescenceData1%>% filter (Strain == Strain2) %>% filter (TimePoint<7), aes(x=TimePoint, ymin=Mean-SE,ymax=Mean+SE), width = 0)+
-      scale_y_log10(name=expression(paste(italic('S. aureus'), " luminescence (%)" )), limits = c(1,121),labels = c(1, 10, 100),breaks = c(1, 10, 100))+
+      scale_y_log10(name=expression(paste(italic('S. aureus'), " luminescence (%)" )), limits = c(.1,121),labels = c(0.1,1, 10, 100),breaks = c(0.1,1, 10, 100))+
       labs( x = "Time (minutes)",shape = "") +
       scale_shape_manual(values = c(1,2),limits=c("shaking","static"))+
       theme_cowplot(12)+
@@ -189,10 +226,12 @@ figure1D<-ggplot()+
             axis.title.x = element_text(margin = margin(0,0,0,0),size=13),axis.text.x = element_text(margin = margin(1,0,0,0),size=11),
             axis.title.y = element_text(margin = margin(0,0,0,0),size=13),axis.text.y = element_text(margin = margin(0,0,2,0),size=11))
 
-legendFigure1C <- get_legend(figure1C + theme(legend.box.margin = margin(0, 0, 0, 10)))
-plotsFigure1cd <- plot_grid(figure1C+theme(legend.position="none"),figure1D+theme(legend.position="none"),
-                      align='vh',labels = c("C", "D"),hjust = -1,nrow = 1,label_size= 20)
-plot_grid(plotsFigure1cd,legendFigure1C,rel_widths = c(3, .6))
+legendFigure1C <- get_legend(figure1C + theme(legend.box.margin = margin(0, 0, 0, 0)))
+#plotsFigure1cd <- plot_grid(figure1C+theme(legend.position="none"),figure1D+theme(legend.position="none"), align='vh',labels = c("C", "D"),hjust = -1,nrow = 1,label_size= 20)
+##plotsFigure1c <- plot_grid(figure1C+theme(legend.position="none"),legendFigure1C, align='vh',labels = c("C"),rel_widths = c(1,.7),hjust = -1,nrow = 1,label_size= 20,label_x = 0, label_y = 1)
+plotsFigure1c <- plot_grid(figure1C+theme(legend.position="none"),align='vh',labels = c("C"),hjust = -1,nrow = 1,label_size= 20,
+                           label_x = 0, label_y = 1)
+#plot_grid(plotsFigure1cd,legendFigure1C,rel_widths = c(1,.1))
 }   
 figure1CD<-GraphStaphKilling("wt","wt")
 figure2CD<-GraphStaphKilling("pqsl", "pqsL")
@@ -436,7 +475,7 @@ test1Unique<-rbind(test1Unique, new.rowWt.frequency)
 test1Unique<-rbind(test1Unique, new.rowMut.frequency)
 
 test1Unique$LogBin <- factor(test1Unique$LogBin, levels = c("(5, 10]","(10, 100]",paste0("(100, ",bquote("\U221E"), ")")))
-test1Unique$ConditionNew <- factor(test1Unique$ConditionNew, levels = c("Mono", "Co"))
+
 #####
 
 #t-tests for frequency bins proportion
@@ -501,8 +540,8 @@ tTestAggSizesTable.proportion<-bind_rows(map(tTestDatAggSizes.proportion, TtestT
 #####
 
 #plot frequency bins proportion
-test1Unique$Species <- factor(test1Unique$Species, levels = c("Pa", "Sa"),
-                                         labels = c('P. aeruginosa','S. aureus'))
+test1Unique$Species <- factor(test1Unique$Species, levels = c("Pa", "Sa"),labels = c('P. aeruginosa','S. aureus'))
+test1Unique$ConditionNew <- factor(test1Unique$ConditionNew, levels = c("Mono", "Co"))
 PlotFreqLogBinProp<-function(strain){
   df <-test1Unique%>% filter(Strain == strain)
   ggplot()+
@@ -526,18 +565,19 @@ PlotFreqLogBinProp<-function(strain){
 figure1F<-PlotFreqLogBinProp("PA14wt")
 figure2F<-PlotFreqLogBinProp("PA14mut")
 
-figure1EF<-plot_grid(figure1E,figure1F,rel_widths = c(1,1.2),align='vh',labels = c("E", "F"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
-figure2EF<-plot_grid(figure2E,figure2F,rel_widths = c(1,1.2),align='vh',labels = c("E", "F"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
+figure1EF<-plot_grid(figure1E,figure1F,rel_widths = c(1,1.2),align='vh',labels = c("D", "E"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
+figure2EF<-plot_grid(figure2E,figure2F,rel_widths = c(1,1.2),align='vh',labels = c("D", "E"),hjust = -1,nrow = 1,label_size= 20, label_x = 0, label_y = .95)
 
 
 ```
 
 ```{Make full figures 1 and 2}
-plots <- align_plots(figure1AB, figure1CD,align = 'vh', axis = 'l')
-plot_grid(plots[[1]],plots[[2]],figure1EF, align='vh',nrow = 3, rel_heights = c(1,1,1.5))
+top_Row1<-plot_grid(figure1AB,figure1CD,align='vh',nrow = 1, rel_widths = c(2,1))
+plot_grid(top_Row1,figure1EF, align='v',nrow = 2, rel_heights = c(1,1.5))
 
-plots <- align_plots(figure2AB, figure2CD,align = 'vh', axis = 'l')
-plot_grid(plots[[1]],plots[[2]],figure2EF, align='vh',nrow = 3, rel_heights = c(1,1,1.5))
+top_Row2<-plot_grid(figure2AB,figure2CD,align='vh',nrow = 1, rel_widths = c(2,1))
+plot_grid(top_Row2,figure2EF, align='v',nrow = 2, rel_heights = c(1,1.5))
+
 ```
 ```{r figure 3}
 MixedAggregateBiomassPlot<-ggplot()+
@@ -574,7 +614,7 @@ sa.paPlot<-
   geom_errorbar(data = enrichmentDataSpreadsheet %>% filter(Relation == "Sa->Pa"),
                 aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = 0)+
   #labs( y = bquote(paste("Enrichment distance\n", italic("S. aureus") %->% italic("P. aeruginosa "),"("*mu*"m)")), x = "" ) +
-  labs(y = expression(atop("Enrichment distance ",paste(italic("S. aureus") %->% italic("P. aeruginosa "),"("*mu*"m)")))) +
+  labs(y = expression(atop("Enrichment distance ("*mu*"m)",paste(italic("S. aureus") %->% italic("P. aeruginosa "))))) +
   scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),
                      labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
                                 bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
@@ -589,7 +629,7 @@ sa.saPlot<-
   geom_point(data = enrichmentDataSpreadsheet %>% filter(Relation == "Sa->Sa"),aes(y=meanEnrichment, x = Strain),size=4, shape = 1)+
   geom_errorbar(data = enrichmentDataSpreadsheet %>% filter(Relation == "Sa->Sa"),
                 aes(ymin = meanEnrichment-sdEnrichment,ymax = meanEnrichment+sdEnrichment, x = Strain),size=.2, width = 0)+
-  labs(y = expression(atop("Enrichment distance ",paste(italic("S. aureus") %->% italic("S. aureus "),"("*mu*"m)"))), x = "" ) +
+  labs(y = expression(atop("Enrichment distance ("*mu*"m)",paste(italic("S. aureus") %->% italic("S. aureus ")))), x = "" ) +
   scale_shape_manual(values = c(1,2),name = "", limits=c("wt","mut"),labels = c(bquote(paste(italic('P. aeruginosa'), " wild-type")),
                                 bquote(paste(italic('P. aeruginosa '), Delta*"pqsL"))))+
   scale_x_discrete(name =expression(italic("P. aeruginosa")), breaks = c("wt","mut"), 
