@@ -21,7 +21,7 @@ library(purrr)
 library(plotrix)#this is for std.error function
 library(scales)#for negative log
 library(stringr)
-
+ 
 PA14wt<- c('3-13-19', '3-19-19', '4-17-19')
 PA14mut<- c('4-24-19', '4-25-19', '5-8-19')
 PA01wt<- c('3-26-19','4-18-19')
